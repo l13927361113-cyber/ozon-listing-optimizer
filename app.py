@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
 from database.models import db, Listing
-from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part
+from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt
 
 load_dotenv()
 app = Flask(__name__)
@@ -85,6 +85,34 @@ def api_part_lookup():
         return jsonify(lookup_part(data.get("part_number",""), data))
     except Exception as e:
         return jsonify({"error":str(e)}),500
+
+
+@app.post("/api/chatgpt-prompt")
+def chatgpt_prompt():
+    data=request.get_json(force=True) or {}
+    mode=data.get("mode", "analyze")
+    if mode not in ("analyze", "generate", "optimize", "part_lookup"):
+        return jsonify({"error":"不支持的模式"}),400
+    return jsonify({"prompt":build_chatgpt_prompt(mode,data)})
+
+@app.post("/api/import-listing")
+def import_listing():
+    data=request.get_json(force=True) or {}
+    output=(data.get("output") or "").strip()
+    if not output:
+        return jsonify({"error":"请先粘贴 ChatGPT 结果"}),400
+    if len(output)>200000:
+        return jsonify({"error":"内容过长"}),400
+    inp=data.get("input_data") or {}
+    if not isinstance(inp,dict):
+        return jsonify({"error":"商品数据格式错误"}),400
+    mode=data.get("mode") or "generate"
+    title=(inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案")[:500]
+    row=Listing(title=title,product_type=str(inp.get("product_type") or mode)[:100],
+                brand=str(inp.get("brand") or "")[:200],model=str(inp.get("model") or inp.get("part_number") or "")[:200],
+                input_data=json.dumps(inp,ensure_ascii=False),output_data=json.dumps({"raw_output":output,"source":"ChatGPT Plus 手动导入"},ensure_ascii=False))
+    db.session.add(row);db.session.commit()
+    return jsonify({"listing_id":row.id,"message":"已保存到文案库"})
 
 @app.get("/workspace")
 def workspace():

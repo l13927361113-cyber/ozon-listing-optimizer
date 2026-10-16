@@ -8,4 +8,5 @@
 <label>其他资料 / 你想解决的问题</label><textarea id="notes" rows="5"></textarea>
 <button id="optimizeBtn" class="primary">AI分析并优化</button>
 </div><div id="output" class="result hidden"></div>
+<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>先生成指令并复制到 ChatGPT，完成后将回答粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
 {% endblock %}

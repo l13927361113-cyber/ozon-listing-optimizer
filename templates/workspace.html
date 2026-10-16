@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block content %}
 <h1>文案工作台</h1>
 <div class="table"><div class="tr th"><span>ID</span><span>商品</span><span>类型</span><span>型号</span><span>创建时间</span></div>
-{% for x in listings %}<div class="tr"><span>{{x.id}}</span><span>{{x.title}}</span><span>{{x.product_type}}</span><span>{{x.model}}</span><span>{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
+{% for x in listings %}<div class="tr"><span>{{x.id}}</span><span><button class="viewListing secondary" data-id="{{x.id}}">{{x.title}}</button></span><span>{{x.product_type}}</span><span>{{x.model}}</span><span>{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
+<div class="panel hidden" id="libraryDetail"><h2>文案详情</h2><pre id="libraryOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button id="copyLibrary" class="secondary">复制文案</button></div>
 {% endblock %}

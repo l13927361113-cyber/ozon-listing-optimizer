@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% block title %}新商品创建{% endblock %}{% block content %}
+{% extends "base.html" %}{% block title %}新商品创建<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>先生成指令并复制到 ChatGPT，完成后将回答粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
+{% endblock %}{% block content %}
 <h1>新商品创建</h1>
 <div class="panel">
 <label>商品类型</label><div class="seg"><button data-type="machine" class="active">电动工具整机</button><button data-type="part">电动工具零件</button><button data-type="other">其他商品</button></div>
@@ -14,4 +15,5 @@
 <div class="actions"><button id="analyzeBtn" class="primary">① AI分析商品</button><button id="generateBtn" class="primary" disabled>② 生成 Listing</button></div>
 </div>
 <div id="analysis" class="result hidden"></div><div id="output" class="result hidden"></div>
+<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>先生成指令并复制到 ChatGPT，完成后将回答粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
 {% endblock %}

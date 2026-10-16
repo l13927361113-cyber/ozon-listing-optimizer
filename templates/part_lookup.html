@@ -4,4 +4,5 @@
 <label>补充信息（可选）</label><textarea id="partNotes" rows="5" placeholder="如果你知道机器型号、市场、图片文字等可以补充。图片本身后续通过临时窗口接入，不长期保存。"></textarea>
 <button id="lookupBtn" class="primary">AI查询</button>
 </div><div id="output" class="result hidden"></div>
+<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>先生成指令并复制到 ChatGPT，完成后将回答粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
 {% endblock %}
