@@ -1,0 +1,9 @@
+OZON Listing Optimizer V1.2
+
+1. 原仓库文件覆盖更新，保持 Render 现有服务、构建命令和启动命令不变。
+2. 文案库自动解析既有 ChatGPT Plus 导入的 JSON，并分 Part0–Part8 展示与复制。旧记录无需迁移。
+3. 新商品：先生成分析指令，在 Data Packet 专用输入框粘贴核验结果并保存；生成 Listing 指令时会自动带入核验资料。
+4. Data Packet 按零件号保存到独立 data_packets 表（db.create_all 自动建表）；没有更改既有 listings 表。
+5. 重要：若 Render 未设置 DATABASE_URL，程序使用本地 SQLite，免费实例部署或休眠后数据可能丢失。正式使用前配置独立持久化 PostgreSQL 并备份数据。不要把数据库密码上传 GitHub。
+6. 上传 GitHub 时不要上传 __pycache__、*.pyc、.env；不要删除已有文件或数据库。
+7. ChatGPT Plus 模式仍需手动复制粘贴，不会自动调用 ChatGPT 或付费 API。

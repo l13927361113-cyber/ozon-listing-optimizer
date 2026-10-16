@@ -2,7 +2,7 @@ import os, json, uuid, base64
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
-from database.models import db, Listing
+from database.models import db, Listing, DataPacket
 from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt
 
 load_dotenv()
@@ -107,12 +107,47 @@ def import_listing():
     if not isinstance(inp,dict):
         return jsonify({"error":"商品数据格式错误"}),400
     mode=data.get("mode") or "generate"
+    if mode=="generate":
+        try:
+            parsed=json.loads(output)
+            if not isinstance(parsed,dict) or not isinstance(parsed.get("listings"),list) or not parsed["listings"]:
+                return jsonify({"error":"请粘贴完整 Listing JSON，Data Packet 请使用单独的保存按钮"}),400
+        except json.JSONDecodeError:
+            return jsonify({"error":"Listing 必须是完整 JSON。请复制 ChatGPT 代码框中的 JSON，不要复制说明文字"}),400
     title=(inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案")[:500]
     row=Listing(title=title,product_type=str(inp.get("product_type") or mode)[:100],
                 brand=str(inp.get("brand") or "")[:200],model=str(inp.get("model") or inp.get("part_number") or "")[:200],
                 input_data=json.dumps(inp,ensure_ascii=False),output_data=json.dumps({"raw_output":output,"source":"ChatGPT Plus 手动导入"},ensure_ascii=False))
     db.session.add(row);db.session.commit()
     return jsonify({"listing_id":row.id,"message":"已保存到文案库"})
+
+@app.post("/api/data-packet")
+def save_data_packet():
+    data=request.get_json(silent=True) or {}
+    inp=data.get("input_data") or {}
+    output=(data.get("output") or "").strip()
+    if not isinstance(inp,dict) or not output or len(output)>200000:
+        return jsonify({"error":"请填写商品信息并粘贴完整 Data Packet（不超过20万字）"}),400
+    model=str(inp.get("model") or inp.get("part_number") or "").strip()
+    if not model:return jsonify({"error":"请先填写型号或零件号"}),400
+    row=DataPacket.query.filter_by(model=model).order_by(DataPacket.id.desc()).first()
+    if row is None:
+        row=DataPacket(model=model)
+        db.session.add(row)
+    row.product_name=str(inp.get("product_name") or "")[:500]
+    row.input_data=json.dumps(inp,ensure_ascii=False)
+    row.packet_text=output
+    row.updated_at=datetime.utcnow()
+    db.session.commit()
+    return jsonify({"id":row.id,"message":"Data Packet 已保存"})
+
+@app.get("/api/data-packet")
+def read_data_packet():
+    model=(request.args.get("model") or "").strip()
+    if not model:return jsonify({"error":"缺少零件号"}),400
+    row=DataPacket.query.filter_by(model=model).order_by(DataPacket.id.desc()).first()
+    if not row:return jsonify({"found":False})
+    return jsonify({"found":True,"id":row.id,"output":row.packet_text,"updated_at":row.updated_at.isoformat()})
 
 @app.get("/workspace")
 def workspace():

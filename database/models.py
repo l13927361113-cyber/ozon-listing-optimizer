@@ -13,3 +13,12 @@ class Listing(db.Model):
     input_data=db.Column(db.Text, default="{}")
     output_data=db.Column(db.Text, default="{}")
     created_at=db.Column(db.DateTime, default=datetime.utcnow)
+
+class DataPacket(db.Model):
+    __tablename__="data_packets"
+    id=db.Column(db.Integer,primary_key=True)
+    model=db.Column(db.String(200),index=True,nullable=False)
+    product_name=db.Column(db.String(500),default="")
+    input_data=db.Column(db.Text,default="{}")
+    packet_text=db.Column(db.Text,nullable=False)
+    updated_at=db.Column(db.DateTime,default=datetime.utcnow)

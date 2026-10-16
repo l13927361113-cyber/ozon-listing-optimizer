@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block content %}
-<h1>文案工作台</h1>
-<div class="table"><div class="tr th"><span>ID</span><span>商品</span><span>类型</span><span>型号</span><span>创建时间</span></div>
-{% for x in listings %}<div class="tr"><span>{{x.id}}</span><span><button class="viewListing secondary" data-id="{{x.id}}">{{x.title}}</button></span><span>{{x.product_type}}</span><span>{{x.model}}</span><span>{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
-<div class="panel hidden" id="libraryDetail"><h2>文案详情</h2><pre id="libraryOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button id="copyLibrary" class="secondary">复制文案</button></div>
+<h1>文案库</h1><p class="muted">选择商品后按 Part0–Part8 阅读与复制，俄文段落保留原始换行。</p>
+<div class="table"><div class="tr th"><span>ID / 时间</span><span>商品</span><span>类型</span><span>型号</span></div>
+{% for x in listings %}<div class="tr"><span>{{x.id}}<small class="muted">{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</small></span><span><button class="viewListing secondary" data-id="{{x.id}}">{{x.title}}</button></span><span>{{x.product_type}}</span><span>{{x.model}}</span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
+<div class="panel hidden" id="libraryDetail"><div class="library-head"><div><h2 id="detailTitle">文案详情</h2><p id="detailMeta" class="muted"></p></div><button class="secondary" id="copyLibrary">复制完整 JSON</button></div><div id="librarySections"></div><details class="raw-details"><summary>查看原始 JSON（高级）</summary><pre id="libraryOutput"></pre></details></div>
 {% endblock %}
