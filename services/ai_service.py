@@ -2,6 +2,7 @@ import os, json, re
 from pathlib import Path
 from openai import OpenAI
 from services.import_utils import normalize_tags, invalid_tag_reason
+from services.listing_rules import apply_policy, validate_tags
 
 PROMPT_DIR=Path(__file__).resolve().parent.parent/"prompts"
 MODEL=os.getenv("OPENAI_MODEL","gpt-6-sol")
@@ -66,6 +67,7 @@ def one_click_listing(data, old=False):
     result["version"]="1.3"
     result["source_mode"]="old_listing" if old else "new_product"
     validate_listing(result,payload)
+    apply_policy(result,payload)
     return result
 
 
@@ -92,6 +94,7 @@ def validate_listing(result, payload):
         for word in forbidden:
             values=[str(listing.get(k,"")) for k in fields]+[str(x) for x in tags]+[str(x) for x in listing.get("part6_hashtags_zh",[])]
             if any(word in value.lower() for value in values):raise ValueError("品牌风控未通过："+word)
+    validate_tags(result,payload)
     result.setdefault("risk_check",{})
 
 
@@ -118,7 +121,7 @@ def build_chatgpt_prompt(mode,data):
 - Part7/8 明确写出实际包装物及零件号，不得臆造附件。
 """
     if mode in ("generate", "optimize"):
-        extra+="\nV1.3 一键模式：在一次回答内部先核验事实再生成完整 Part0–Part8；旧标题可作为唯一输入；单独输出 compatibility_table 数组（model,order_number,type,region,evidence_level,source_url），仅填可核验数据，供用户截图；Part3 不罗列长串订货号；零件卖家保修30自然日、整机90自然日，从收货起算，保留法定退货权利；来源无法访问时使用公开维修资料交叉核验并标注等级，不得伪造官网检索结果。\n"
+        extra+="\nV1.3 一键模式：在一次回答内部先核验事实再生成完整 Part0–Part8；旧标题可作为唯一输入；单独输出 compatibility_table 数组（model,order_number,type,region,evidence_level,source_url），仅填可核验数据，供用户截图；Part3 不罗列长串订货号；零件30自然日保修必须使用系统固定七项排除条款、从收货起算；整机保修仅在用户确认后写入，保留法定退货权利；来源无法访问时使用公开维修资料交叉核验并标注等级，不得伪造官网检索结果。\n"
     if mode=="analyze":
         extra+='\n本轮只做 Data Packet 事实分析，列出待确认项目，不要提前生成最终文案。\n'
     elif mode=="part_lookup":

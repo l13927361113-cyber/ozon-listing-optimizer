@@ -108,8 +108,8 @@ if($('apiGenerateBtn')) $('apiGenerateBtn').onclick=async()=>{
  catch(e){alert('API 生成未保存：'+e.message)}finally{button.disabled=false;button.textContent='API 自动生成（需单独付费）';}
 };
 
-// V1.3.4 library management: destructive actions require explicit confirmation.
-if($('selectAllListings')) $('selectAllListings').onclick=()=>{const boxes=[...document.querySelectorAll('.listing-select')];const all=boxes.every(b=>b.checked);boxes.forEach(b=>b.checked=!all)};
-if($('bulkDeleteListings')) $('bulkDeleteListings').onclick=async()=>{const ids=[...document.querySelectorAll('.listing-select:checked')].map(b=>Number(b.value));if(!ids.length)return alert('请先勾选要删除的记录');if(!confirm(`确定永久删除选中的 ${ids.length} 条文案记录？此操作不可恢复。`))return;try{const r=await post('/api/listings/bulk-delete',{ids});alert(`已删除 ${r.deleted} 条记录`);location.reload()}catch(e){alert(e.message)}};
-document.querySelectorAll('.deleteListing').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.id);if(!confirm(`确定永久删除文案记录 #${id}？删除后无法恢复。`))return;try{const r=await fetch('/api/listings/'+id,{method:'DELETE'});const j=await r.json();if(!r.ok)throw Error(j.error||'删除失败');location.reload()}catch(e){alert(e.message)}});
-document.querySelectorAll('.listing-status').forEach(el=>{let previous=el.value;el.onchange=async()=>{try{const r=await fetch('/api/listings/'+el.dataset.id+'/status',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:el.value})});const j=await r.json();if(!r.ok)throw Error(j.error||'保存失败');previous=el.value;}catch(e){el.value=previous;alert(e.message)}}});
+// Delete only the selected saved listing after confirmation.
+document.querySelectorAll('.deleteListing').forEach(btn=>btn.onclick=async()=>{
+ if(!confirm('确定永久删除文案 #'+btn.dataset.id+'？此操作不能撤销。'))return;
+ try{const r=await fetch('/api/listings/'+btn.dataset.id,{method:'DELETE'});if(!r.ok)throw Error('删除失败');location.reload();}catch(e){alert(e.message)}
+});

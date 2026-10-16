@@ -22,3 +22,6 @@
 
 
 V1.3 事实核验补充：官方售后优先（Bosch boschtoolservice.com；Metabo metabo-service.com；DeWALT service.dewalt.ru / 2helpu.com；Stanley 2helpu.com），查询不可访问则转独立公开维修资料。不能假称访问成功；不要将商家转述当官方证据。中国和俄罗斯地区、Type及订货号需区分。详细订货号放独立适配表，不堆积在 Part3。旧商品标题中的零件号和适配型号只是检索线索，必须再核验。
+
+
+检索路径优先：Bosch boschtoolservice.com；Metabo metabo-service.com；DeWALT service.dewalt.ru 和 2helpu.com；Stanley 2helpu.com；Makita 官方零件图/授权维修资料。每个来源应包含可访问的具体零件页面或目录，不得仅给品牌首页充当核验证据。搜索工具不可用时不得声称已查询。原标题中的主要机器型号必须逐一尝试核验；证据不足时留在待核验线索，不得编造兼容表。

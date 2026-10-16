@@ -1,11 +1,11 @@
 import os, json, uuid, base64, re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from sqlalchemy import text
 from dotenv import load_dotenv
 from database.models import db, Listing, DataPacket
 from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt, one_click_listing
 from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_tag_reason
+from services.listing_rules import apply_policy, validate_tags
 
 load_dotenv()
 app = Flask(__name__)
@@ -15,11 +15,6 @@ db.init_app(app)
 
 with app.app_context():
     db.create_all()
-    # Backward-compatible lightweight migration for existing Neon installations.
-    from sqlalchemy import inspect
-    if "status" not in {c["name"] for c in inspect(db.engine).get_columns("listings")}:
-        db.session.execute(text("ALTER TABLE listings ADD COLUMN status VARCHAR(20) DEFAULT 'test'"))
-        db.session.commit()
 
 @app.get("/")
 def index():
@@ -153,6 +148,11 @@ def import_listing():
                 reason = invalid_tag_reason(tag)
                 if reason:
                     return jsonify({"error":f"第 {index} 个配置的第 {tag_index} 个标签 {tag}：{reason}"}),400
+        try:
+            validate_tags(parsed, inp)
+            apply_policy(parsed, inp)
+        except ValueError as exc:
+            return jsonify({"error":str(exc)}),400
         parsed.setdefault("compatibility_table",[])
         parsed.setdefault("analysis_summary","待核验：请查看文案中的事实来源")
     title=(parsed or {}).get("master_title") or inp.get("title") or inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案"
@@ -192,43 +192,15 @@ def read_data_packet():
 
 @app.get("/workspace")
 def workspace():
-    status=request.args.get("status", "all")
-    query=Listing.query
-    if status in ("test", "formal"):
-        query=query.filter(Listing.status==status)
-    rows=query.order_by(Listing.created_at.desc()).all()
-    return render_template("workspace.html", listings=rows, status_filter=status)
-
-@app.patch("/api/listings/<int:listing_id>/status")
-def update_listing_status(listing_id):
-    row=Listing.query.get_or_404(listing_id)
-    status=(request.get_json(silent=True) or {}).get("status")
-    if status not in ("test", "formal"):
-        return jsonify({"error":"状态只能是测试或正式"}),400
-    row.status=status
-    db.session.commit()
-    return jsonify({"id":row.id,"status":row.status})
+    rows=Listing.query.order_by(Listing.created_at.desc()).all()
+    return render_template("workspace.html", listings=rows)
 
 @app.delete("/api/listings/<int:listing_id>")
 def delete_listing(listing_id):
     row=Listing.query.get_or_404(listing_id)
     db.session.delete(row)
     db.session.commit()
-    return jsonify({"deleted":1,"id":listing_id})
-
-@app.post("/api/listings/bulk-delete")
-def bulk_delete_listings():
-    data=request.get_json(silent=True) or {}
-    ids=data.get("ids")
-    if not isinstance(ids,list) or not ids or len(ids)>200 or any(type(i) is not int or i<=0 for i in ids):
-        return jsonify({"error":"请选择1至200条有效记录"}),400
-    ids=list(set(ids))
-    rows=Listing.query.filter(Listing.id.in_(ids)).all()
-    if len(rows)!=len(ids):
-        return jsonify({"error":"部分记录不存在，请刷新后重试"}),409
-    for row in rows: db.session.delete(row)
-    db.session.commit()
-    return jsonify({"deleted":len(rows)})
+    return jsonify({"deleted":True,"id":listing_id})
 
 @app.get("/api/listings/<int:listing_id>")
 def get_listing(listing_id):
