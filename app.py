@@ -68,7 +68,7 @@ def api_one_click():
             brand=str(data.get("brand") or "")[:200],model=str(data.get("model") or result.get("fact_packet",{}).get("part_number") or "")[:200],
             input_data=json.dumps(data,ensure_ascii=False),output_data=json.dumps(result,ensure_ascii=False))
         db.session.add(record);db.session.commit()
-        return jsonify({"listing_id":record.id,"version":"1.3"})
+        return jsonify({"listing_id":record.id,"version":"1.3.5"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error":str(e)}),422
