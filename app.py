@@ -1,4 +1,4 @@
-import os, json, uuid, base64
+import os, json, uuid, base64, re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
@@ -127,17 +127,30 @@ def import_listing():
     if not isinstance(inp,dict):
         return jsonify({"error":"商品数据格式错误"}),400
     mode=data.get("mode") or "generate"
+    parsed=None
     if mode in ("generate", "optimize"):
+        cleaned=re.sub(r"^```(?:json)?\s*", "", output, flags=re.I).strip()
+        cleaned=re.sub(r"\s*```$", "", cleaned).strip()
         try:
-            parsed=json.loads(output)
-            if not isinstance(parsed,dict) or not isinstance(parsed.get("listings"),list) or not parsed["listings"]:
-                return jsonify({"error":"请粘贴完整 Listing JSON，Data Packet 请使用单独的保存按钮"}),400
+            parsed=json.loads(cleaned)
         except json.JSONDecodeError:
-            return jsonify({"error":"Listing 必须是完整 JSON。请复制 ChatGPT 代码框中的 JSON，不要复制说明文字"}),400
-    title=(inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案")[:500]
-    row=Listing(title=title,product_type=str(inp.get("product_type") or mode)[:100],
+            return jsonify({"error":"请粘贴完整 JSON（可包含 ```json 代码框），不要包含其他解释文字"}),400
+        if not isinstance(parsed,dict) or not isinstance(parsed.get("listings"),list) or not parsed["listings"]:
+            return jsonify({"error":"缺少完整 listings 数组，请让 ChatGPT 按 Part0–Part8 JSON 模板重新输出"}),400
+        required=("part1_title_ru","part2_title_zh","part3_description_ru","part4_description_zh","part5_hashtags","part6_hashtags_zh","part7_packaging_ru","part8_packaging_zh")
+        for index,entry in enumerate(parsed["listings"],1):
+            if not isinstance(entry,dict) or any(not entry.get(k) for k in required):
+                return jsonify({"error":f"第 {index} 个配置缺少 Part1–Part8 字段"}),400
+            if not isinstance(entry["part5_hashtags"],list) or len(entry["part5_hashtags"])!=30:
+                return jsonify({"error":f"第 {index} 个配置的俄文标签不是30个"}),400
+            if any(not re.fullmatch(r"#?[а-яёА-ЯЁ0-9_]+",str(tag)) or re.search(r"\d{10,}",str(tag)) for tag in entry["part5_hashtags"]):
+                return jsonify({"error":f"第 {index} 个配置的标签包含不支持的字符或连续10位数字"}),400
+        parsed.setdefault("compatibility_table",[])
+        parsed.setdefault("analysis_summary","待核验：请查看文案中的事实来源")
+    title=(parsed or {}).get("master_title") or inp.get("title") or inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案"
+    row=Listing(title=str(title)[:500],product_type=str(inp.get("product_type") or mode)[:100],
                 brand=str(inp.get("brand") or "")[:200],model=str(inp.get("model") or inp.get("part_number") or "")[:200],
-                input_data=json.dumps(inp,ensure_ascii=False),output_data=json.dumps({"raw_output":output,"source":"ChatGPT Plus 手动导入"},ensure_ascii=False))
+                input_data=json.dumps(inp,ensure_ascii=False),output_data=json.dumps(parsed if parsed is not None else {"raw_output":output,"source":"ChatGPT Plus 手动导入"},ensure_ascii=False))
     db.session.add(row);db.session.commit()
     return jsonify({"listing_id":row.id,"message":"已保存到文案库"})
 

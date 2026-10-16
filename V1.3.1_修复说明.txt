@@ -1,0 +1,2 @@
+V1.3.1 修复：新商品和旧商品默认一键生成 ChatGPT Plus 完整指令，无需 API Key；付费 API 自动生成移入可选高级区域；导入 ChatGPT JSON 后直接存储结构化数据，文案库按 Part0–Part8 与独立适配表展示；兼容原 Neon 数据表。请提交 GitHub main 并观察 Render 自动部署。
+注意：Plus 模式不自动调用 ChatGPT，也不自动抓取官网；研究须由 ChatGPT 会话实际执行并核对来源。

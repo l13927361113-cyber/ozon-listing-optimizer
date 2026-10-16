@@ -88,12 +88,22 @@ const initialListing=new URLSearchParams(location.search).get('listing');
 if(initialListing){const btn=document.querySelector('.viewListing[data-id="'+initialListing+'"]');if(btn)setTimeout(()=>btn.click(),200)}
 if($('copyLibrary')) $('copyLibrary').onclick=async()=>{await navigator.clipboard.writeText(currentLibraryText);alert('已复制完整 JSON')};
 
-// V1.3: single-click API mode. Plus mode remains a single copy/paste workflow.
+// V1.3.1: Plus is the default. API remains an explicitly labeled optional action.
 if($('oneClickBtn')) $('oneClickBtn').onclick=async()=>{
  const button=$('oneClickBtn');const v=collectPlusData();
  if(v.mode==='optimize'&&!v.data.title.trim())return alert('请先输入旧商品标题');
- button.disabled=true;button.textContent='正在核验并生成，请勿重复点击…';
- try{const r=await post('/api/one-click',{...v.data,mode:v.mode});
-  alert('生成成功，已保存到文案库，编号 #'+r.listing_id);location.href='/workspace?listing='+r.listing_id;
- }catch(e){alert('未保存：'+e.message)}finally{button.disabled=false;button.textContent=v.mode==='optimize'?'一键优化并生成 Part0–Part8（API 模式）':'一键分析并生成完整 Listing（API 模式）'}
+ if(v.mode==='generate'&&!String(v.data.model||v.data.product_name||v.data.info||'').trim())return alert('请先输入商品型号、名称或资料');
+ button.disabled=true;const label=button.textContent;button.textContent='正在整理完整指令…';
+ try{const prompt=await preparePlusPrompt();
+   try{await navigator.clipboard.writeText(prompt);alert('完整指令已复制！请粘贴到 ChatGPT，生成后把 JSON 粘贴回来保存。');}
+   catch(e){alert('指令已生成，请在下方指令预览框中手动复制。');}
+   $('chatPanel')?.scrollIntoView({behavior:'smooth'});
+ }catch(e){alert('生成指令失败：'+e.message)}finally{button.disabled=false;button.textContent=label;}
+};
+if($('apiGenerateBtn')) $('apiGenerateBtn').onclick=async()=>{
+ const button=$('apiGenerateBtn');const v=collectPlusData();
+ if(!confirm('API 自动生成需要单独付费的 OpenAI API Key 和额度。确定继续？'))return;
+ button.disabled=true;button.textContent='API 核验与生成中…';
+ try{const r=await post('/api/one-click',{...v.data,mode:v.mode});location.href='/workspace?listing='+r.listing_id;}
+ catch(e){alert('API 生成未保存：'+e.message)}finally{button.disabled=false;button.textContent='API 自动生成（需单独付费）';}
 };
