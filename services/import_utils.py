@@ -37,6 +37,19 @@ def parse_chatgpt_json(raw):
     raise ValueError('未找到包含 listings 的完整 JSON 对象，请复制 ChatGPT 的完整生成结果。')
 
 
+TAG_MAX_LENGTH = 60  # conservative internal limit; verify current OZON category limits before publishing
+TAG_PATTERN = re.compile(r"#[а-яёА-ЯЁa-zA-Z0-9_]+")
+
+def invalid_tag_reason(tag):
+    tag = str(tag)
+    if not TAG_PATTERN.fullmatch(tag):
+        return "包含不支持的字符"
+    if re.search(r"\d{10,}", tag):
+        return "包含连续10位及以上数字"
+    if len(tag) > TAG_MAX_LENGTH:
+        return f"长度{len(tag)}字符，超过工具保守上限{TAG_MAX_LENGTH}"
+    return None
+
 def normalize_tags(tags, part_number="", brand=""):
     """Repair hashtags without altering real part numbers in listing fields."""
     digits = re.sub(r"\D", "", str(part_number or ""))

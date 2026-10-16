@@ -1,7 +1,7 @@
 import os, json, re
 from pathlib import Path
 from openai import OpenAI
-from services.import_utils import normalize_tags
+from services.import_utils import normalize_tags, invalid_tag_reason
 
 PROMPT_DIR=Path(__file__).resolve().parent.parent/"prompts"
 MODEL=os.getenv("OPENAI_MODEL","gpt-6-sol")
@@ -85,8 +85,10 @@ def validate_listing(result, payload):
             tags=normalize_tags(tags, payload.get("part_number") or payload.get("model") or "", payload.get("brand") or "")
             listing["part5_hashtags"]=tags
         if not isinstance(tags,list) or len(tags)!=30:raise ValueError("主题标签必须正好30个，已拒绝保存")
-        if any(not re.fullmatch(r"#?[а-яёА-ЯЁ0-9_]+",str(t)) or re.search(r"\d{10,}",str(t)) for t in tags):
-            raise ValueError("主题标签格式不符合规则，已拒绝保存")
+        for i, tag in enumerate(tags, 1):
+            reason = invalid_tag_reason(tag)
+            if reason:
+                raise ValueError(f"第{i}个标签 {tag}：{reason}")
         for word in forbidden:
             values=[str(listing.get(k,"")) for k in fields]+[str(x) for x in tags]+[str(x) for x in listing.get("part6_hashtags_zh",[])]
             if any(word in value.lower() for value in values):raise ValueError("品牌风控未通过："+word)
@@ -112,7 +114,7 @@ def build_chatgpt_prompt(mode,data):
 - 零件号先核验，按官方资料/可信零件目录列出来源链接、证据和置信度；未核实的适配型号标记为待核验，绝不编造。
 - 不得把未经核验的兼容型号写成确定事实；不要声称拥有无法实际访问的实时搜索结果。
 - 固定输出 Part0–Part8：Part0 Compatibility Analysis；Part1 SEO Title（Russian）；Part2 中文翻译（仅标题）；Part3 Product Description（Russian）；Part4 中文翻译（仅描述）；Part5 SEO Hashtags（30个）；Part6 中文说明（Part5翻译）；Part7 Комплектация；Part8 中文说明。
-- Part5 必须30个标签，仅俄文字母、数字、下划线；零件号连字符替换下划线；连续数字最多9位；10位数字零件号仅在标签中于第9位数字后插入下划线，例如2609120395→#260912039_5；标题、描述及包装清单保留原号。
+- Part5 必须30个标签，俄文字母、机器型号必要的拉丁字母、数字、下划线；零件号连字符替换下划线；连续数字最多9位；10位数字零件号仅在标签中于第9位数字后插入下划线，例如2609120395→#260912039_5；标题、描述及包装清单保留原号。
 - Part7/8 明确写出实际包装物及零件号，不得臆造附件。
 """
     if mode in ("generate", "optimize"):

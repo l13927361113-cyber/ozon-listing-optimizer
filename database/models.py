@@ -12,6 +12,7 @@ class Listing(db.Model):
     model=db.Column(db.String(200), default="")
     input_data=db.Column(db.Text, default="{}")
     output_data=db.Column(db.Text, default="{}")
+    status=db.Column(db.String(20),default="test",nullable=False)
     created_at=db.Column(db.DateTime, default=datetime.utcnow)
 
 class DataPacket(db.Model):

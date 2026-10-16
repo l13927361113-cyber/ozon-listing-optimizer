@@ -1,6 +1,17 @@
 {% extends "base.html" %}{% block content %}
 <h1>文案库</h1><p class="muted">选择商品后按 Part0–Part8 阅读与复制，俄文段落保留原始换行。</p>
-<div class="table"><div class="tr th"><span>ID / 时间</span><span>商品</span><span>类型</span><span>型号</span></div>
-{% for x in listings %}<div class="tr"><span>{{x.id}}<small class="muted">{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</small></span><span><button class="viewListing secondary" data-id="{{x.id}}">{{x.title}}</button></span><span>{{x.product_type}}</span><span>{{x.model}}</span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
+<div class="panel" style="margin-bottom:16px">
+  <label for="statusFilter">筛选记录：</label>
+  <select id="statusFilter" onchange="location.href='/workspace?status='+encodeURIComponent(this.value)">
+    <option value="all" {% if status_filter=='all' %}selected{% endif %}>全部</option>
+    <option value="test" {% if status_filter=='test' %}selected{% endif %}>测试</option>
+    <option value="formal" {% if status_filter=='formal' %}selected{% endif %}>正式</option>
+  </select>
+  <button type="button" id="selectAllListings" class="secondary">全选 / 取消全选</button>
+  <button type="button" id="bulkDeleteListings" style="background:#b42318;color:white">删除选中记录</button>
+  <span class="muted">删除后不可恢复；仅删除文案库记录，不影响商品资料或其他系统。</span>
+</div>
+<div class="table"><div class="tr th" style="grid-template-columns:48px 140px minmax(150px,2fr) 1fr 1fr 110px 80px"><span>选择</span><span>ID / 时间</span><span>商品</span><span>类型</span><span>型号</span><span>状态</span><span>操作</span></div>
+{% for x in listings %}<div class="tr" style="grid-template-columns:48px 140px minmax(150px,2fr) 1fr 1fr 110px 80px"><span><input type="checkbox" class="listing-select" value="{{x.id}}" aria-label="选择记录 {{x.id}}"></span><span>{{x.id}}<small class="muted">{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</small></span><span><button class="viewListing secondary" data-id="{{x.id}}">{{x.title}}</button></span><span>{{x.product_type}}</span><span>{{x.model}}</span><span><select class="listing-status" data-id="{{x.id}}" aria-label="记录状态"><option value="test" {% if x.status!='formal' %}selected{% endif %}>测试</option><option value="formal" {% if x.status=='formal' %}selected{% endif %}>正式</option></select></span><span><button type="button" class="deleteListing secondary" data-id="{{x.id}}" style="color:#b42318">删除</button></span></div>{% else %}<div class="empty">暂无数据</div>{% endfor %}</div>
 <div class="panel hidden" id="libraryDetail"><div class="library-head"><div><h2 id="detailTitle">文案详情</h2><p id="detailMeta" class="muted"></p></div><button class="secondary" id="copyLibrary">复制完整 JSON</button></div><div id="librarySections"></div><details class="raw-details"><summary>查看原始 JSON（高级）</summary><pre id="libraryOutput"></pre></details></div>
 {% endblock %}
