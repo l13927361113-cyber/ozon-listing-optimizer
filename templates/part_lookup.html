@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block content %}
+<h1>零件号查询</h1><div class="panel">
+<label>零件号</label><input id="partNumber" placeholder="例如 629932-8 / 1600A00F8P / N438742">
+<label>补充信息（可选）</label><textarea id="partNotes" rows="5" placeholder="如果你知道机器型号、市场、图片文字等可以补充。图片本身后续通过临时窗口接入，不长期保存。"></textarea>
+<button id="lookupBtn" class="primary">AI查询</button>
+</div><div id="output" class="result hidden"></div>
+{% endblock %}

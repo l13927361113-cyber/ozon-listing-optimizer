@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}新商品创建{% endblock %}{% block content %}
+<h1>新商品创建</h1>
+<div class="panel">
+<label>商品类型</label><div class="seg"><button data-type="machine" class="active">电动工具整机</button><button data-type="part">电动工具零件</button><button data-type="other">其他商品</button></div>
+<div id="fields">
+<label>品牌</label><input id="brand" placeholder="例如 RUIBA / SKIL / Bosch">
+<label>型号 / 零件号</label><input id="model" placeholder="例如 JM-125A 或 629932-8">
+<label>商品名称</label><input id="product_name" placeholder="例如 无刷角磨机">
+<label>产品参数、功能、适配、你知道的全部信息</label><textarea id="info" rows="9" placeholder="把你知道的资料全部写进来，AI会先分析事实，不会因为缺资料而乱编。"></textarea>
+<label>品牌生成策略</label><div class="seg"><button id="withBrand" class="active">带品牌</button><button id="noBrand">不带品牌</button></div>
+<label><input type="checkbox" id="useWeb" checked> 允许 AI 联网查询俄罗斯关键词/零件资料</label>
+</div>
+<div id="configs"><label>销售配置（整机可添加多个；其他类型可留空）</label><div id="configList"></div><button id="addConfig" class="secondary">＋ 添加配置</button></div>
+<div class="actions"><button id="analyzeBtn" class="primary">① AI分析商品</button><button id="generateBtn" class="primary" disabled>② 生成 Listing</button></div>
+</div>
+<div id="analysis" class="result hidden"></div><div id="output" class="result hidden"></div>
+{% endblock %}

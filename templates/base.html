@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}OZON商品文案{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<header><div class="brand">OZON商品文案 <span>Listing 优化</span></div>
+<nav><a href="/">工作台</a><a href="/new">新商品</a><a href="/optimize">旧商品优化</a><a href="/parts">零件号查询</a><a href="/workspace">文案库</a></nav></header>
+<main>{% block content %}{% endblock %}</main>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body></html>

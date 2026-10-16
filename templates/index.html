@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero"><div><p class="eyebrow">OZON LISTING AI</p><h1>商品文案工作台</h1><p>把商品资料交给 AI：分析事实、研究俄语关键词、控制品牌风险，再生成可直接整理到 OZON 的 Listing。</p></div></section>
+<div class="grid cards">
+<a class="card" href="/new"><b>新商品创建</b><span>整机 / 零件 / 其他商品</span></a>
+<a class="card" href="/optimize"><b>旧商品优化</b><span>原标题、描述、标签重新优化</span></a>
+<a class="card" href="/parts"><b>零件号查询</b><span>输入零件号，查询品牌、机型和适配关系</span></a>
+<a class="card" href="/workspace"><b>文案工作台</b><span>查看历史、复制、继续修改</span></a>
+</div>
+<h2>最近生成</h2>
+<div class="table"><div class="tr th"><span>商品</span><span>类型</span><span>型号</span><span>时间</span></div>
+{% for x in recent %}<div class="tr"><span>{{x.title}}</span><span>{{x.product_type}}</span><span>{{x.model}}</span><span>{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</span></div>{% else %}<div class="empty">还没有生成记录</div>{% endfor %}</div>
+{% endblock %}
