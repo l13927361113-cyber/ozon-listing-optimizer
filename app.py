@@ -142,7 +142,7 @@ def import_listing():
                 return jsonify({"error":f"第 {index} 个配置缺少 Part1–Part8 字段"}),400
             if not isinstance(entry["part5_hashtags"],list) or len(entry["part5_hashtags"])!=30:
                 return jsonify({"error":f"第 {index} 个配置的俄文标签不是30个"}),400
-            entry["part5_hashtags"]=normalize_tags(entry["part5_hashtags"])
+            entry["part5_hashtags"]=normalize_tags(entry["part5_hashtags"], inp.get("part_number") or inp.get("model") or "", inp.get("brand") or "")
             if any(not re.fullmatch(r"#?[а-яёА-ЯЁ0-9_]+",str(tag)) or re.search(r"\d{10,}",str(tag)) for tag in entry["part5_hashtags"]):
                 return jsonify({"error":f"第 {index} 个配置的标签包含不支持的字符或连续10位数字"}),400
         parsed.setdefault("compatibility_table",[])

@@ -10,3 +10,5 @@ V1.3 事实核验补充：官方售后优先（Bosch boschtoolservice.com；Meta
 输出统一为 generate.txt 定义的完整 JSON schema（包括 listings 全部 Part1-Part8），并在顶层新增 compatibility_table 数组，每行结构 {"model":"","order_number":"","type":"","region":"","evidence_level":"A/B","source_url":""}；只列可追溯且有证据支持的型号，找不到返回空数组，绝不编造。Part0 放 analysis_summary。俄文 Part3 适当简短，保修说明：零件30自然日，整机90自然日，卖家保修不限制消费者法定权利；中文 Part4 同步翻译。Part7/8 只写包装清单，不替换。Part5 必须30个俄文标签，禁止连续10位以上数字。禁止将未经核验的参数或适配型号写成确定事实。
 
 特别要求：旧商品优化不输出仅 title/description/hashtags 的旧格式，必须严格输出 generate.txt 的 master_title、analysis_summary、listings、risk_check 和 compatibility_table 完整结构。
+
+V1.3.3：Part3应恢复有事实依据的详细描述结构（产品介绍、零件信息、核验过的主要和其他适配、选购核对、安装注意、包装清单），Part4逐节完整翻译；不得编造。Bosch十位零件号例如2609120395的标签优先写成#2_609_120_395，复合标签同样分组；其他品牌按核验的分组，未核验时仅做9位截断加下划线的备用格式。禁止任何标签出现连续10位数字。输出单独的```json代码块，便于一键复制。
