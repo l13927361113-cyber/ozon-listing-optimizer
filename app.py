@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
 from database.models import db, Listing, DataPacket
-from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt
+from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt, one_click_listing
 
 load_dotenv()
 app = Flask(__name__)
@@ -50,6 +50,26 @@ def api_generate():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.post("/api/one-click")
+def api_one_click():
+    data=request.get_json(silent=True) or {}
+    old=data.get("mode")=="optimize"
+    if old and not str(data.get("title") or "").strip():
+        return jsonify({"error":"请输入旧商品标题"}),400
+    if not old and not any(str(data.get(k) or "").strip() for k in ("model","product_name","info")):
+        return jsonify({"error":"请输入商品型号、名称或资料"}),400
+    try:
+        result=one_click_listing(data,old=old)
+        record=Listing(title=str(result.get("master_title") or data.get("title") or data.get("product_name") or data.get("model") or "未命名商品")[:500],
+            product_type="旧商品优化" if old else str(data.get("product_type") or ""),
+            brand=str(data.get("brand") or "")[:200],model=str(data.get("model") or result.get("fact_packet",{}).get("part_number") or "")[:200],
+            input_data=json.dumps(data,ensure_ascii=False),output_data=json.dumps(result,ensure_ascii=False))
+        db.session.add(record);db.session.commit()
+        return jsonify({"listing_id":record.id,"version":"1.3"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error":str(e)}),422
 
 @app.get("/optimize")
 def optimize_page():
@@ -107,7 +127,7 @@ def import_listing():
     if not isinstance(inp,dict):
         return jsonify({"error":"商品数据格式错误"}),400
     mode=data.get("mode") or "generate"
-    if mode=="generate":
+    if mode in ("generate", "optimize"):
         try:
             parsed=json.loads(output)
             if not isinstance(parsed,dict) or not isinstance(parsed.get("listings"),list) or not parsed["listings"]:

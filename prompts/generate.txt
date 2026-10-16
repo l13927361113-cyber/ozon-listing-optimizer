@@ -21,3 +21,8 @@ Hashtag规则：30个；俄文/数字/下划线；不要品牌名（除非明确
  ],
  "risk_check":{"passed":true,"issues":[]}
 }
+
+
+V1.3 事实核验补充：官方售后优先（Bosch boschtoolservice.com；Metabo metabo-service.com；DeWALT service.dewalt.ru / 2helpu.com；Stanley 2helpu.com），查询不可访问则转独立公开维修资料。不能假称访问成功；不要将商家转述当官方证据。中国和俄罗斯地区、Type及订货号需区分。详细订货号放独立适配表，不堆积在 Part3。旧商品标题中的零件号和适配型号只是检索线索，必须再核验。
+
+输出统一为 generate.txt 定义的完整 JSON schema（包括 listings 全部 Part1-Part8），并在顶层新增 compatibility_table 数组，每行结构 {"model":"","order_number":"","type":"","region":"","evidence_level":"A/B","source_url":""}；只列可追溯且有证据支持的型号，找不到返回空数组，绝不编造。Part0 放 analysis_summary。俄文 Part3 适当简短，保修说明：零件30自然日，整机90自然日，卖家保修不限制消费者法定权利；中文 Part4 同步翻译。Part7/8 只写包装清单，不替换。Part5 必须30个俄文标签，禁止连续10位以上数字。禁止将未经核验的参数或适配型号写成确定事实。

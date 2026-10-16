@@ -1,0 +1,8 @@
+V1.3 升级说明
+1. 原有数据库表结构未修改，不会清空 V1.2 文案库。
+2. 新旧商品均提供「一键生成」按钮：需要 Render 配置 OPENAI_API_KEY、有效 API 余额，以及支持 web_search 的 OPENAI_MODEL。
+3. ChatGPT Plus 辅助模式仍为复制指令→在 ChatGPT 生成→粘贴完整 JSON 保存；网站无法自动调用 Plus 会话。
+4. 官方网站自动检索能力依赖 AI Web Search 可访问的公开索引；未实现绕过 Access Denied 的官方私有 API，也不能保证官方目录实时反查。无法核验时应返回空适配表。
+5. 新增独立 compatibility_table 截图区域；旧文案记录仍兼容。
+6. 将 ZIP 解压后上传覆盖 GitHub 同名文件，Render 部署前建议先备份当前 commit。数据库不需迁移。
+7. 注意：保修期限为卖家拟提供条款，发布前核对当地法律与实际售后承诺。

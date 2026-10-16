@@ -2,11 +2,11 @@
 <h1>旧商品优化</h1><div class="panel">
 <label>商品类型 / 品牌 / 型号（可选）</label><input id="meta">
 <label>品牌生成策略</label><div class="seg"><button id="withBrand" class="active">带品牌</button><button id="noBrand">不带品牌</button></div>
-<label>原商品标题</label><textarea id="oldTitle" rows="3"></textarea>
+<label>原商品标题（必填，其他资料均可留空）</label><textarea id="oldTitle" rows="3"></textarea>
 <label>原 Product Description（Russian）</label><textarea id="oldDesc" rows="10"></textarea>
 <label>原 Hashtags</label><textarea id="oldTags" rows="5"></textarea>
 <label>其他资料 / 你想解决的问题</label><textarea id="notes" rows="5"></textarea>
-<button id="optimizeBtn" class="primary">AI分析并优化</button>
+<button id="oneClickBtn" class="primary">一键优化并生成 Part0–Part8（API 模式）</button><p class="muted">自动提取旧标题中的零件号和型号，联网核验后重新生成完整文案。</p>
 </div><div id="output" class="result hidden"></div>
-<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>先生成指令并复制到 ChatGPT，完成后将回答粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
+<div class="panel" id="chatPanel" style="margin-top:18px"><h2>ChatGPT Plus 辅助模式（无需 API Key）</h2><p>只需复制一次完整指令到 ChatGPT，完成后将 JSON 粘贴回来保存。不会自动调用 ChatGPT。</p><div class="actions"><button id="copyPromptBtn" class="primary">复制 ChatGPT 指令</button><button id="openChatBtn" class="secondary">打开 ChatGPT</button></div><label>指令预览</label><textarea id="promptPreview" rows="7" readonly placeholder="点击生成指令后显示"></textarea><label>粘贴 ChatGPT 回答</label><textarea id="importText" rows="12" placeholder="将 ChatGPT 的完整回答粘贴到这里"></textarea><button id="importBtn" class="primary">保存到文案库</button><div id="importStatus"></div></div>
 {% endblock %}

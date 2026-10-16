@@ -38,7 +38,56 @@ def generate_listing(data):
     return _call(_prompt("generate.txt"), data, web=data.get("use_web",True))
 
 def optimize_listing(data):
-    return _call(_prompt("optimize.txt"), data, web=True)
+    return one_click_listing(data, old=True)
+
+
+def one_click_listing(data, old=False):
+    """Server-side sequential fact-check and generation; no extra browser step."""
+    payload=dict(data)
+    if old:
+        title=(payload.get("title") or "").strip()
+        if not title:
+            raise ValueError("请填写旧商品标题")
+        payload["old_listing_title"]=title
+        payload["product_name"]=title
+        payload["use_web"]=True
+    analysis=analyze_product(payload)
+    if not isinstance(analysis,dict) or analysis.get("raw_output"):
+        raise ValueError("事实核验未返回有效结构，请稍后重试；不会使用未经核验的数据生成文案")
+    if analysis.get("risk_flags") and not analysis.get("sources"):
+        analysis.setdefault("unknowns",[]).append("没有可追溯的资料来源；适配型号不得写成已确认")
+    payload["analysis"]=analysis
+    payload["research_policy"]="官方售后优先；无法访问则独立公开维修目录交叉核对；区分已核验与待确认；不可伪造来源；适配表仅列有证据支持的具体版本。"
+    result=generate_listing(payload)
+    if not isinstance(result,dict) or not isinstance(result.get("listings"),list) or not result["listings"]:
+        raise ValueError("文案生成结果不完整，未保存；请重试")
+    result["fact_packet"]=analysis
+    result["version"]="1.3"
+    result["source_mode"]="old_listing" if old else "new_product"
+    validate_listing(result,payload)
+    return result
+
+
+def validate_listing(result, payload):
+    """Fail closed on mechanical requirements; never mark unverifiable claims as verified."""
+    import re
+    forbidden=["makita","макита","牧田"] if ("makita" in str(payload.get("brand","")).lower() or "牧田" in str(payload.get("brand",""))) else []
+    if payload.get("brand_mode")=="no_brand":
+        b=str(payload.get("brand") or "").strip()
+        if b:forbidden.append(b.lower())
+    for listing in result["listings"]:
+        fields=["part1_title_ru","part2_title_zh","part3_description_ru","part4_description_zh","part7_packaging_ru","part8_packaging_zh"]
+        for field in fields:
+            if not str(listing.get(field,"")).strip():raise ValueError("生成结果缺少 "+field)
+        tags=listing.get("part5_hashtags")
+        if not isinstance(tags,list) or len(tags)!=30:raise ValueError("主题标签必须正好30个，已拒绝保存")
+        if any(not re.fullmatch(r"#?[а-яёА-ЯЁ0-9_]+",str(t)) or re.search(r"\d{10,}",str(t)) for t in tags):
+            raise ValueError("主题标签格式不符合规则，已拒绝保存")
+        for word in forbidden:
+            values=[str(listing.get(k,"")) for k in fields]+[str(x) for x in tags]+[str(x) for x in listing.get("part6_hashtags_zh",[])]
+            if any(word in value.lower() for value in values):raise ValueError("品牌风控未通过："+word)
+    result.setdefault("risk_check",{})
+
 
 def lookup_part(part_number, data=None):
     payload={"part_number":part_number, **(data or {})}
@@ -60,6 +109,8 @@ def build_chatgpt_prompt(mode,data):
 - Part5 必须30个标签，仅俄文字母、数字、下划线；零件号连字符替换下划线；连续数字最多9位。
 - Part7/8 明确写出实际包装物及零件号，不得臆造附件。
 """
+    if mode in ("generate", "optimize"):
+        extra+="\nV1.3 一键模式：在一次回答内部先核验事实再生成完整 Part0–Part8；旧标题可作为唯一输入；单独输出 compatibility_table 数组（model,order_number,type,region,evidence_level,source_url），仅填可核验数据，供用户截图；Part3 不罗列长串订货号；零件卖家保修30自然日、整机90自然日，从收货起算，保留法定退货权利；来源无法访问时使用公开维修资料交叉核验并标注等级，不得伪造官网检索结果。\n"
     if mode=="analyze":
         extra+='\n本轮只做 Data Packet 事实分析，列出待确认项目，不要提前生成最终文案。\n'
     elif mode=="part_lookup":

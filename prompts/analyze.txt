@@ -19,3 +19,6 @@
  "confidence": "High/Medium/Low",
  "sources": []
 }
+
+
+V1.3 事实核验补充：官方售后优先（Bosch boschtoolservice.com；Metabo metabo-service.com；DeWALT service.dewalt.ru / 2helpu.com；Stanley 2helpu.com），查询不可访问则转独立公开维修资料。不能假称访问成功；不要将商家转述当官方证据。中国和俄罗斯地区、Type及订货号需区分。详细订货号放独立适配表，不堆积在 Part3。旧商品标题中的零件号和适配型号只是检索线索，必须再核验。
