@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for
 from dotenv import load_dotenv
 from database.models import db, Listing, DataPacket
 from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt, one_click_listing
+from services.import_utils import parse_chatgpt_json, normalize_tags
 
 load_dotenv()
 app = Flask(__name__)
@@ -129,12 +130,10 @@ def import_listing():
     mode=data.get("mode") or "generate"
     parsed=None
     if mode in ("generate", "optimize"):
-        cleaned=re.sub(r"^```(?:json)?\s*", "", output, flags=re.I).strip()
-        cleaned=re.sub(r"\s*```$", "", cleaned).strip()
         try:
-            parsed=json.loads(cleaned)
-        except json.JSONDecodeError:
-            return jsonify({"error":"请粘贴完整 JSON（可包含 ```json 代码框），不要包含其他解释文字"}),400
+            parsed=parse_chatgpt_json(output)
+        except ValueError as exc:
+            return jsonify({"error":str(exc)}),400
         if not isinstance(parsed,dict) or not isinstance(parsed.get("listings"),list) or not parsed["listings"]:
             return jsonify({"error":"缺少完整 listings 数组，请让 ChatGPT 按 Part0–Part8 JSON 模板重新输出"}),400
         required=("part1_title_ru","part2_title_zh","part3_description_ru","part4_description_zh","part5_hashtags","part6_hashtags_zh","part7_packaging_ru","part8_packaging_zh")
@@ -143,6 +142,7 @@ def import_listing():
                 return jsonify({"error":f"第 {index} 个配置缺少 Part1–Part8 字段"}),400
             if not isinstance(entry["part5_hashtags"],list) or len(entry["part5_hashtags"])!=30:
                 return jsonify({"error":f"第 {index} 个配置的俄文标签不是30个"}),400
+            entry["part5_hashtags"]=normalize_tags(entry["part5_hashtags"])
             if any(not re.fullmatch(r"#?[а-яёА-ЯЁ0-9_]+",str(tag)) or re.search(r"\d{10,}",str(tag)) for tag in entry["part5_hashtags"]):
                 return jsonify({"error":f"第 {index} 个配置的标签包含不支持的字符或连续10位数字"}),400
         parsed.setdefault("compatibility_table",[])

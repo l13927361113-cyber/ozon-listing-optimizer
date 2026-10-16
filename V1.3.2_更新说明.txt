@@ -1,0 +1,11 @@
+OZON Listing Optimizer V1.3.2
+
+本次修复：
+1. ChatGPT Plus 模式导入支持整段回复、JSON 代码框及前后解释文字，自动提取包含 listings 的 JSON 对象。
+2. 自动处理复制时混入的 HTML 空格编码和网址中的错误转义（如 \\.）。
+3. 导入失败提示 JSON 行列信息，便于定位问题。
+4. Part5 主题标签连续数字最多9位：2609120395 -> #260912039_5；标题、描述、包装清单中的原零件号不变。
+5. 保留现有 Part0-Part8、适配表、数据库结构及 ChatGPT Plus 辅助模式。
+
+注意：仅修改数据导入与标签校验，不代表官方售后目录已实现自动查询；无 API Key 时仍需在 ChatGPT 生成后粘贴结果导入。
+部署：上传项目文件到 GitHub main；Render Auto-Deploy On Commit 自动部署。不要上传 .env 或 __pycache__。
