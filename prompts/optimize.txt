@@ -7,10 +7,13 @@
 
 V1.3 事实核验补充：官方售后优先（Bosch boschtoolservice.com；Metabo metabo-service.com；DeWALT service.dewalt.ru / 2helpu.com；Stanley 2helpu.com），查询不可访问则转独立公开维修资料。不能假称访问成功；不要将商家转述当官方证据。中国和俄罗斯地区、Type及订货号需区分。详细订货号放独立适配表，不堆积在 Part3。旧商品标题中的零件号和适配型号只是检索线索，必须再核验。
 
-输出统一为 generate.txt 定义的完整 JSON schema（包括 listings 全部 Part1-Part8），并在顶层新增 compatibility_table 数组，每行结构 {"model":"","order_number":"","type":"","region":"","evidence_level":"A/B","source_url":""}；只列可追溯且有证据支持的型号，找不到返回空数组，绝不编造。Part0 放 analysis_summary。俄文 Part3 适当简短，保修说明：零件30自然日，整机90自然日，卖家保修不限制消费者法定权利；中文 Part4 同步翻译。Part7/8 只写包装清单，不替换。Part5 必须30个俄文标签，禁止连续10位以上数字。禁止将未经核验的参数或适配型号写成确定事实。
+输出统一为 generate.txt 定义的完整 JSON schema（包括 listings 全部 Part1-Part8），并在顶层新增 compatibility_table 数组，每行结构 {"model":"","order_number":"","type":"","region":"","evidence_level":"A/B","source_url":""}；只列可追溯且有证据支持的型号，找不到返回空数组，绝不编造。Part0 放 analysis_summary。俄文 Part3 适当简短，保修说明：零件30自然日，整机90自然日，卖家保修不限制消费者法定权利；中文 Part4 同步翻译。Part7/8 只写包装清单，不替换；不得将Part7/Part8内容重复写入Part3/Part4。Part5 必须30个俄文标签，禁止连续10位以上数字。禁止将未经核验的参数或适配型号写成确定事实。
 
 特别要求：旧商品优化不输出仅 title/description/hashtags 的旧格式，必须严格输出 generate.txt 的 master_title、analysis_summary、listings、risk_check 和 compatibility_table 完整结构。
 
 V1.3.3：Part3应恢复有事实依据的详细描述结构（产品介绍、零件信息、核验过的主要和其他适配、选购核对、安装注意、包装清单），Part4逐节完整翻译；不得编造。Bosch十位零件号例如2609120395的标签优先写成#2_609_120_395，复合标签同样分组；其他品牌按核验的分组，未核验时仅做9位截断加下划线的备用格式。禁止任何标签出现连续10位数字。输出单独的```json代码块，便于一键复制。
 
 V1.3.4 SEO优先级：Part5严格30个不重复的标签；同一零件号的编号标签建议1-3个（优先#2_609_120_395和至多2个有价值的组合），不要再添加#260912039_5之类的重复编号变体。优先覆盖有证据支持的主要机器型号及俄语维修/电机搜索词；型号字母GSR、LI、TSR、V等允许在标签中使用拉丁字母，禁止因强行改成俄文字母而损害买家型号搜索。每个标签控制在60字符以内（工具保守限制，并非声称OZON官方通用上限）。不得为填充标签而编造适配型号。Part3应充分介绍已核验事实，Part4完整翻译，不为凑字数重复。
+
+
+V1.3.7 PART3 字符数强制规则：Part3俄文商品描述目标4000–5000字符，绝对不得超过5500字符（给平台6000字符限制留余量）。字符数包含所有字母、数字、空格、标点、小标题和换行。输出前必须实际核算字符数；若超过5500，自动精简重复介绍、重复卖点、重复场景和重复关键词，再重新核算。不得删掉已核实参数、重要适配型号、购买前核对及适用的完整固定保修条款。Part3/Part4不得包含包装清单章节，因为Part7/Part8已经单独提供；Part7/Part8保持原样，不作修改。Part4必须对应最终精简后的Part3。只输出一个最终JSON，不额外输出字符计数说明。

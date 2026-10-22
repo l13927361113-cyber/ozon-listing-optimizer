@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from database.models import db, Listing, DataPacket
 from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt, one_click_listing
 from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_tag_reason
-from services.listing_rules import apply_policy, validate_tags
+from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
 app = Flask(__name__)
@@ -39,6 +39,8 @@ def api_generate():
     data = request.get_json(force=True)
     try:
         result = generate_listing(data)
+        apply_policy(result, data)
+        validate_description_lengths(result)
         record = Listing(
             title=result.get("master_title") or data.get("model") or data.get("product_name") or "未命名商品",
             product_type=data.get("product_type",""),
@@ -68,7 +70,7 @@ def api_one_click():
             brand=str(data.get("brand") or "")[:200],model=str(data.get("model") or result.get("fact_packet",{}).get("part_number") or "")[:200],
             input_data=json.dumps(data,ensure_ascii=False),output_data=json.dumps(result,ensure_ascii=False))
         db.session.add(record);db.session.commit()
-        return jsonify({"listing_id":record.id,"version":"1.3.6"})
+        return jsonify({"listing_id":record.id,"version":"1.3.7"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error":str(e)}),422
@@ -151,6 +153,7 @@ def import_listing():
         try:
             validate_tags(parsed, inp)
             apply_policy(parsed, inp)
+            validate_description_lengths(parsed)
         except ValueError as exc:
             return jsonify({"error":str(exc)}),400
         parsed.setdefault("compatibility_table",[])

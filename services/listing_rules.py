@@ -96,3 +96,23 @@ def validate_tags(result, payload):
             if reason:raise ValueError(f'第{i}个标签 {tag}：{reason}')
         entry['part5_hashtags']=tags
     return result
+
+
+DESCRIPTION_TARGET_MAX = 5000
+DESCRIPTION_HARD_MAX = 5500
+
+def validate_description_lengths(result, target_max=DESCRIPTION_TARGET_MAX, hard_max=DESCRIPTION_HARD_MAX):
+    """Validate the final Russian description after fixed policy text is appended.
+
+    Python len() counts Unicode code points, including spaces, punctuation and newlines.
+    We enforce a conservative 5,500-character ceiling to stay below the user's 6,000 limit.
+    """
+    for index, entry in enumerate(result.get('listings', []), 1):
+        description = str(entry.get('part3_description_ru') or '')
+        count = len(description)
+        if count > hard_max:
+            raise ValueError(
+                f'第 {index} 个配置的 Part3 俄文简介为 {count} 个字符，超过工具上限 {hard_max}。'
+                '请精简重复介绍、重复卖点和重复使用场景后重新导入；不得删除已核实参数、主要适配型号、购买提醒或固定保修条款。'
+            )
+    return result
