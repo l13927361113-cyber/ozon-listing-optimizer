@@ -98,7 +98,7 @@ def validate_tags(result, payload):
     return result
 
 
-DESCRIPTION_TARGET_MAX = 5000
+DESCRIPTION_TARGET_MAX = 5999
 DESCRIPTION_HARD_MAX = 6000
 
 def validate_description_lengths(result, target_max=DESCRIPTION_TARGET_MAX, hard_max=DESCRIPTION_HARD_MAX):
