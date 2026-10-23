@@ -39,7 +39,26 @@ async function preparePlusPrompt(){const v=collectPlusData();if(v.mode==='genera
 async function copyPlus(){try{const txt=await preparePlusPrompt();await navigator.clipboard.writeText(txt);alert('指令已复制，请粘贴到 ChatGPT');}catch(e){alert('复制失败：'+e.message+'。可手动复制预览框中的文字。');}}
 if($('copyPromptBtn')) $('copyPromptBtn').onclick=copyPlus;
 if($('openChatBtn')) $('openChatBtn').onclick=()=>window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
-if($('importBtn')) $('importBtn').onclick=async()=>{try{const v=collectPlusData();const result=await post('/api/import-listing',{mode:v.mode,input_data:v.data,output:$('importText').value});$('importStatus').textContent='已保存，文案编号：'+result.listing_id+'。前往文案库查看。';}catch(e){alert(e.message)}};
+if($('importBtn')) $('importBtn').onclick=async()=>{
+ try{
+  const v=collectPlusData();
+  const result=await post('/api/import-listing',{mode:v.mode,input_data:v.data,output:$('importText').value});
+  $('importStatus').textContent='已保存，文案编号：'+result.listing_id+'。前往文案库查看。';
+  if($('repairDescriptionBtn')) $('repairDescriptionBtn').hidden=true;
+ }catch(e){
+  alert(e.message);
+  if($('repairDescriptionBtn')) $('repairDescriptionBtn').hidden=!(/Part3.*字符|超过工具硬性上限/.test(e.message));
+ }
+};
+if($('repairDescriptionBtn')) $('repairDescriptionBtn').onclick=async()=>{
+ const raw=$('importText')?.value.trim();
+ if(!raw)return alert('请先粘贴完整 Listing JSON');
+ const prompt=`请只修复下面 JSON 中超出6000字符的 Part3 俄文商品描述，最终每个 Part3（含已有固定保修和购买前条款）建议不超过5600字符、绝对不得超过6000字符。统计包括空格、标点和换行。保留核实参数、主要适配、购买提醒、固定保修条款，删除重复介绍、卖点、场景。Part3/Part4不得有包装清单章节。对应更新 Part4 中文翻译。Part1、Part2、Part5、Part6、Part7、Part8、适配表及其他字段保持原样，不得修改或删除。请输出一个完整、有效、可直接导入的 JSON 代码块，不要解释或省略字段。\\n\\n原始 JSON：\\n${raw}`;
+ $('promptPreview').value=prompt;
+ try{await navigator.clipboard.writeText(prompt);alert('精简指令已复制。粘贴到 ChatGPT 后，将修订后的完整 JSON 粘贴回来保存。');}
+ catch(e){alert('精简指令已放到“指令预览”，请手动复制。');}
+ $('promptPreview').scrollIntoView({behavior:'smooth'});
+};
 if($('analyzeBtn')) {$('analyzeBtn').textContent='① 生成 ChatGPT 分析指令';$('analyzeBtn').onclick=async()=>{try{const v=collectPlusData();const r=await post('/api/chatgpt-prompt',{mode:'analyze',...v.data});$('promptPreview').value=r.prompt;await navigator.clipboard.writeText(r.prompt);alert('分析指令已复制，请到 ChatGPT 核验商品资料。');}catch(e){alert(e.message)}};}
 if($('generateBtn')) {$('generateBtn').disabled=false;$('generateBtn').textContent='② 生成 Listing 指令';$('generateBtn').onclick=copyPlus;}
 if($('lookupBtn')) {$('lookupBtn').textContent='生成零件号核验指令';$('lookupBtn').onclick=copyPlus;}

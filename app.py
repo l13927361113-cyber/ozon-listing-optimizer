@@ -8,7 +8,12 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
+APP_VERSION = "1.4.0"
 app = Flask(__name__)
+
+@app.context_processor
+def inject_app_version():
+    return {"app_version": APP_VERSION}
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL", "sqlite:///ozon_listing.db").replace("postgres://","postgresql://")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
@@ -70,7 +75,7 @@ def api_one_click():
             brand=str(data.get("brand") or "")[:200],model=str(data.get("model") or result.get("fact_packet",{}).get("part_number") or "")[:200],
             input_data=json.dumps(data,ensure_ascii=False),output_data=json.dumps(result,ensure_ascii=False))
         db.session.add(record);db.session.commit()
-        return jsonify({"listing_id":record.id,"version":"1.3.7"})
+        return jsonify({"listing_id":record.id,"version":APP_VERSION})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error":str(e)}),422
