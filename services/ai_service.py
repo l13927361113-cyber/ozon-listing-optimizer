@@ -75,7 +75,7 @@ def one_click_listing(data, old=False):
     if not isinstance(result,dict) or not isinstance(result.get("listings"),list) or not result["listings"]:
         raise ValueError("文案生成结果不完整，未保存；请重试")
     result["fact_packet"]=analysis
-    result["version"]="1.5.1"
+    result["version"]="1.5.5"
     result["source_mode"]="old_listing" if old else "new_product"
     validate_listing(result,payload)
     apply_policy(result,payload)
