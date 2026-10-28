@@ -73,12 +73,12 @@ def apply_policy(result, payload):
     for entry in result.get('listings',[]):
         ru=str(entry.get('part3_description_ru') or '')
         zh=str(entry.get('part4_description_zh') or '')
-        # Remove old AI-authored warranty and purchase sections, then append the exact templates.
+        # Generated JSON should already contain the exact seller policy. On older
+        # JSON imports, add missing policy sections without duplicating them.
+        # Replace the whole trailing policy section if present, so the exact
+        # fixed seven exclusions are always used (both languages).
         ru=re.split(r'(?im)^\s*(?:#{1,3}\s*)?(?:Гарантия(?: и условия возврата| продавца)?|Перед покупкой)\s*$',ru,maxsplit=1)[0].strip()
         zh=re.split(r'(?im)^\s*(?:#{1,3}\s*)?(?:[一二三四五六七八九十]+[、.、]\s*)?(?:保修说明|保修与退货条件|卖家保修|购买前)\s*$',zh,maxsplit=1)[0].strip()
-        # Remove duplicate standalone legal-rights paragraphs and short AI warranty statements.
-        ru='\n'.join(line for line in ru.splitlines() if not re.search(r'(?i)Гарантия продавца|Гарантийный срок|Условия гарантии|не ограничива(?:ет|ют) законные права',line)).strip()
-        zh='\n'.join(line for line in zh.splitlines() if not re.search(r'卖家保修|保修期为|法定索赔|上述限制|消费者依法享有|法定退货权',line)).strip()
         entry['part3_description_ru']='\n\n'.join(x for x in (ru,ru_before,WARRANTY_RU) if x)
         entry['part4_description_zh']='\n\n'.join(x for x in (zh,zh_before,WARRANTY_ZH) if x)
     return result

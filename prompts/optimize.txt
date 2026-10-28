@@ -12,7 +12,7 @@
 若官方维修图、爆炸图或授权零件目录查出原标题之外的新适配机型，逐个核实零件号及电压/地区/批次后加入 Part0、Part3、compatibility_table；Part1最多选3个主要型号，新增型号不得挤掉全部旧标题已验证型号。官方新增型号必须提供可追溯source_url。不要自动由 M9509 扩展为 M9509B 或由 9511B 扩展为 M9511B，除非型号命名/对应关系有证据或卖家明确确认。
 compatibility_table 保持现有字段 model/order_number/type/region/evidence_level(A/B)/source_url；卖家验证的型号在type或region写明“卖家验证”，source_url留空，evidence_level用B并明确B不代表官方证据。若现有 schema 无法表达，附加 evidence_source=seller_verified。官方A需官方直接对应，第三方B须列URL。
 旧标题错误的商品类别可纠正（例如把角磨机定子误称电动螺丝刀定子），但纠正类别不得连带清空已验证机型。Part1保留有价值的俄语长尾词（статор, обмотка электродвигателя, для болгарки УШМ），不堆砌。
-Makita/牧田零件无论原始标题有无品牌，最终Part1–Part8均禁品牌名；品牌只可出现在内部事实分析的资料来源或URL中，不得进入Listing标题/正文/标签。Part7/8原规则不变。零件Part3正文不含程序自动追加的购买提醒和保修章节。
+Makita/牧田零件无论原始标题有无品牌，最终Part1–Part8均禁品牌名；品牌只可出现在内部事实分析的资料来源或URL中，不得进入Listing标题/正文/标签。Part7/8原规则不变。零件Part3和Part4必须直接包含固定购买提醒和30天保修七项排除条款。
 
 
 【V1.4.7 标签格式优先级：不可违反】
