@@ -1,17 +1,60 @@
 {% extends "base.html" %}{% block content %}
-<h1>文案修正</h1><p class="muted">加载文案库已有记录，复制修订指令给 ChatGPT；粘贴完整JSON后覆盖原记录，不会生成新编号。</p>
-<div class="panel"><label>选择原记录（保留原ID）</label><select id="revId" style="width:100%;padding:12px;margin:10px 0">{% for x in listings %}<option value="{{x.id}}">#{{x.id}} · {{x.title}}</option>{% endfor %}</select>
-<div><label><input type="radio" name="revMode" value="description" checked> 只修正Part3/Part4（推荐）</label>　<label><input type="radio" name="revMode" value="all"> 按最新规则重新优化全部Part</label></div>
-<p><button id="loadOriginal" class="secondary">加载原文案</button> <button id="makeRevision">生成修订指令</button></p>
-<label>原文案（可复制，也可直接在下方编辑完整JSON）</label><textarea id="originalJson" rows="8" style="width:100%" readonly></textarea>
-<label>ChatGPT修订指令</label><textarea id="revPrompt" rows="10" style="width:100%" readonly></textarea><p><button class="secondary" id="copyRev">复制修订指令</button></p>
-<label>修订后完整JSON（也可直接粘贴原文并手动修改）</label><textarea id="revOutput" rows="12" style="width:100%"></textarea><p><button id="saveRev">校验并覆盖原记录（不增加编号）</button></p><p id="revStatus" class="muted"></p></div>
+<h1>文案修正</h1>
+<p class="muted">修改已有文案，不增加记录编号。只需要按下面 3 步操作。</p>
+<div class="panel revise-simple">
+  <h2>第 1 步：选择要修正的商品</h2>
+  <label for="revId">已有文案</label>
+  <select id="revId" style="width:100%;padding:12px;margin:10px 0">
+    {% for x in listings %}<option value="{{x.id}}">#{{x.id}} · {{x.title}}</option>{% endfor %}
+  </select>
+  <p><label><input type="radio" name="revMode" value="description" checked> 只修正 Part3 / Part4（推荐）</label></p>
+  <p><label><input type="radio" name="revMode" value="all"> 重新优化标题、描述、标签（保留 Part7 / Part8）</label></p>
+  <button type="button" id="loadOriginal" class="secondary">确认选择并读取原文案</button>
+  <p id="loadStatus" class="muted" role="status"></p>
+</div>
+<div class="panel revise-simple">
+  <h2>第 2 步：复制指令给 ChatGPT</h2>
+  <p>点击下面的按钮，系统会把原文案和最新规则一起整理好并复制。<strong>在 ChatGPT 粘贴，等待生成新的完整 JSON。</strong></p>
+  <button type="button" id="copyRev">生成并复制修订指令</button>
+  <p id="promptStatus" class="muted" role="status"></p>
+  <details><summary>查看修订指令（一般不需要打开）</summary><textarea id="revPrompt" rows="7" style="width:100%" readonly></textarea></details>
+</div>
+<div class="panel revise-simple">
+  <h2>第 3 步：粘贴新文案并保存</h2>
+  <p>把 ChatGPT 返回的<strong>完整 JSON</strong> 粘贴到下面。JSON 就是包含 Part1–Part8 的整份文案数据；不用逐段复制。</p>
+  <textarea id="revOutput" rows="9" style="width:100%" placeholder="只在这里粘贴 ChatGPT 新生成的完整 JSON；不要粘贴旧文案"></textarea>
+  <p><button type="button" id="saveRev">检查并保存到原记录</button></p>
+  <p id="revStatus" role="status" aria-live="polite"></p>
+  <p class="muted">保存成功会自动打开文案库中的原记录，看到“已修订”标识。原编号不会变化。</p>
+</div>
 <script>
-const $=id=>document.getElementById(id);const id=()=>$('revId').value;
-const qs=new URLSearchParams(location.search);if(qs.has('id'))$('revId').value=qs.get('id');
-$('loadOriginal').onclick=async()=>{let r=await fetch('/api/listings/'+id()),d=await r.json();if(!r.ok){$('revStatus').textContent=d.error||'加载失败';return;}$('originalJson').value=JSON.stringify(d.output_data,null,2);$('revOutput').value=$('originalJson').value;$('revStatus').textContent='已加载原记录 #'+d.id};
-$('makeRevision').onclick=async()=>{let mode=document.querySelector('input[name=revMode]:checked').value;let sections=mode==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh'];let r=await fetch('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections})}),d=await r.json();$('revPrompt').value=d.prompt||'';$('revStatus').textContent=d.error||'已生成修订指令，复制到ChatGPT使用';};
-$('copyRev').onclick=async()=>{await navigator.clipboard.writeText($('revPrompt').value);$('revStatus').textContent='已复制';};
-$('saveRev').onclick=async()=>{if(!confirm('确认覆盖原记录 #'+id()+'？不会生成新编号。'))return;let r=await fetch('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output:$('revOutput').value,revision_mode:document.querySelector('input[name=revMode]:checked').value})}),d=await r.json();$('revStatus').textContent=d.error||d.message||'保存完成';};
-$('loadOriginal').click();
+(()=>{
+const $=id=>document.getElementById(id), id=()=>$('revId').value;
+let loadedId=null;
+const params=new URLSearchParams(location.search);
+if(params.has('id') && [...$('revId').options].some(o=>o.value===params.get('id'))) $('revId').value=params.get('id');
+const mode=()=>document.querySelector('input[name="revMode"]:checked').value;
+async function request(url,options){const r=await fetch(url,options);let d=await r.json();if(!r.ok)throw Error(d.error||'操作失败');return d;}
+async function load(){try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';$('loadStatus').textContent='✓ 已读取原记录 #'+d.id+'。接下来点击第2步。';$('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').textContent='读取失败：'+e.message;}}
+$('loadOriginal').onclick=load;
+$('revId').onchange=()=>{loadedId=null;$('loadStatus').textContent='请点击“确认选择并读取原文案”';$('revPrompt').value='';$('revOutput').value='';};
+$('copyRev').onclick=async()=>{try{
+if(loadedId!==String(id()))await load();if(!loadedId)throw Error('未能读取原记录');
+const sections=mode()==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'];
+const d=await request('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections})});
+$('revPrompt').value=d.prompt||'';
+try{await navigator.clipboard.writeText(d.prompt);$('promptStatus').textContent='✓ 指令已复制！现在打开 ChatGPT 粘贴，生成后回来进行第3步。';}
+catch(e){$('promptStatus').textContent='复制被浏览器阻止：请展开下方“查看修订指令”并手动复制。';}
+}catch(e){$('promptStatus').textContent='生成指令失败：'+e.message;}};
+$('saveRev').onclick=async()=>{try{
+if(loadedId!==String(id()))throw Error('请先完成第1步读取原记录');
+const output=$('revOutput').value.trim();if(!output)throw Error('请先把 ChatGPT 新生成的完整 JSON 粘贴到第3步');
+if(!confirm('确认把新文案覆盖原记录 #'+id()+' 吗？记录编号不会改变。'))return;
+$('saveRev').disabled=true;$('revStatus').textContent='正在检查并保存…';
+const d=await request('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output,revision_mode:mode()})});
+$('revStatus').textContent='✓ '+d.message+'，正在打开文案库…';
+window.location.href=d.redirect_url||'/workspace?listing='+id();
+}catch(e){$('revStatus').textContent='保存失败：'+e.message;}finally{$('saveRev').disabled=false;}};
+load();
+})();
 </script>{% endblock %}

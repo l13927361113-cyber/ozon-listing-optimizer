@@ -60,7 +60,10 @@ function parseListingOutput(out){if(out&&typeof out.raw_output==='string'){let r
 let currentLibraryText='';
 document.querySelectorAll('.viewListing').forEach(btn=>btn.onclick=async()=>{try{
  const r=await fetch('/api/listings/'+btn.dataset.id);if(!r.ok)throw Error('获取失败');const j=await r.json();const out=parseListingOutput(j.output_data);const holder=$('librarySections');holder.replaceChildren();
- $('detailTitle').textContent=j.input_data.product_name||j.title;$('detailMeta').textContent='型号 / 零件号：'+(j.model||'—')+' · 记录 #'+j.id;
+ $('detailTitle').textContent=j.input_data.product_name||j.title;
+ const revision=out._revision_meta;
+ $('detailMeta').textContent='型号 / 零件号：'+(j.model||'—')+' · 记录 #'+j.id+(revision?' · ✓ 已修订 '+revision.revision_count+'次 · '+revision.version:' · 原始文案');
+ const badge=document.querySelector('.revisionBadge[data-id="'+j.id+'"]');if(badge && revision)badge.hidden=false;
  currentLibraryText=JSON.stringify(out,null,2);$('libraryOutput').textContent=currentLibraryText;
  if(out.unparsed){holder.appendChild(librarySection('原始文案（无法解析为 JSON）',out.unparsed));}
  else if(Array.isArray(out.listings)&&out.listings.length){
@@ -113,3 +116,5 @@ document.querySelectorAll('.deleteListing').forEach(btn=>btn.onclick=async()=>{
  if(!confirm('确定永久删除文案 #'+btn.dataset.id+'？此操作不能撤销。'))return;
  try{const r=await fetch('/api/listings/'+btn.dataset.id,{method:'DELETE'});if(!r.ok)throw Error('删除失败');location.reload();}catch(e){alert(e.message)}
 });
+
+if(document.querySelector('.revisionBadge'))fetch('/api/revision-status').then(r=>r.json()).then(data=>{document.querySelectorAll('.revisionBadge').forEach(b=>{if(data[b.dataset.id]){b.hidden=false;b.title='修订'+data[b.dataset.id].revision_count+'次';}})}).catch(()=>{});

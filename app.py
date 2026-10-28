@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 app = Flask(__name__)
 
 @app.context_processor
@@ -172,11 +172,27 @@ def revise_save(listing_id):
         apply_policy(parsed,inp)
         validate_description_lengths(parsed)
     except ValueError as exc:return jsonify({'error':str(exc)}),400
+    # Do not report success if the user pasted the unchanged original JSON.
+    changed_fields=[]
+    for i,(before,after) in enumerate(zip(old['listings'],parsed['listings']),1):
+        for field in ('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'):
+            if before.get(field)!=after.get(field):
+                changed_fields.append(f'配置{i} {field}')
+    if not changed_fields:
+        return jsonify({'error':'修订内容与原记录相同，没有任何文案变化；请先将ChatGPT生成的新JSON粘贴到第3步，再保存。'}),400
+    from datetime import datetime as _dt
+    previous_meta=old.get('_revision_meta') or {}
+    parsed['_revision_meta']={
+        'revision_count':int(previous_meta.get('revision_count') or 0)+1,
+        'revised_at':_dt.utcnow().isoformat(timespec='seconds')+'Z',
+        'version':APP_VERSION,
+        'changed_fields':changed_fields
+    }
     # Important: preserve the stable database primary key; no new Listing row.
     row.output_data=json.dumps(parsed,ensure_ascii=False)
     row.title=str(parsed.get('master_title') or row.title)[:500]
     db.session.commit()
-    return jsonify({'listing_id':row.id,'message':'已覆盖原记录，编号未改变'})
+    return jsonify({'listing_id':row.id,'message':'修订成功，原记录已更新，编号未改变','redirect_url':f'/workspace?listing={row.id}'})
 
 @app.get("/parts")
 def parts():
@@ -272,6 +288,17 @@ def read_data_packet():
     row=DataPacket.query.filter_by(model=model).order_by(DataPacket.id.desc()).first()
     if not row:return jsonify({"found":False})
     return jsonify({"found":True,"id":row.id,"output":row.packet_text,"updated_at":row.updated_at.isoformat()})
+
+@app.get('/api/revision-status')
+def revision_status():
+    rows=Listing.query.order_by(Listing.id.desc()).all()
+    result={}
+    for row in rows:
+        try:
+            meta=json.loads(row.output_data or '{}').get('_revision_meta')
+            if meta:result[str(row.id)]=meta
+        except (ValueError,TypeError,AttributeError):pass
+    return jsonify(result)
 
 @app.get("/workspace")
 def workspace():
