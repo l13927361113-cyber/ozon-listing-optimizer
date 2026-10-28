@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block content %}
+<h1>文案修正</h1><p class="muted">加载文案库已有记录，复制修订指令给 ChatGPT；粘贴完整JSON后覆盖原记录，不会生成新编号。</p>
+<div class="panel"><label>选择原记录（保留原ID）</label><select id="revId" style="width:100%;padding:12px;margin:10px 0">{% for x in listings %}<option value="{{x.id}}">#{{x.id}} · {{x.title}}</option>{% endfor %}</select>
+<div><label><input type="radio" name="revMode" value="description" checked> 只修正Part3/Part4（推荐）</label>　<label><input type="radio" name="revMode" value="all"> 按最新规则重新优化全部Part</label></div>
+<p><button id="loadOriginal" class="secondary">加载原文案</button> <button id="makeRevision">生成修订指令</button></p>
+<label>原文案（可复制，也可直接在下方编辑完整JSON）</label><textarea id="originalJson" rows="8" style="width:100%" readonly></textarea>
+<label>ChatGPT修订指令</label><textarea id="revPrompt" rows="10" style="width:100%" readonly></textarea><p><button class="secondary" id="copyRev">复制修订指令</button></p>
+<label>修订后完整JSON（也可直接粘贴原文并手动修改）</label><textarea id="revOutput" rows="12" style="width:100%"></textarea><p><button id="saveRev">校验并覆盖原记录（不增加编号）</button></p><p id="revStatus" class="muted"></p></div>
+<script>
+const $=id=>document.getElementById(id);const id=()=>$('revId').value;
+const qs=new URLSearchParams(location.search);if(qs.has('id'))$('revId').value=qs.get('id');
+$('loadOriginal').onclick=async()=>{let r=await fetch('/api/listings/'+id()),d=await r.json();if(!r.ok){$('revStatus').textContent=d.error||'加载失败';return;}$('originalJson').value=JSON.stringify(d.output_data,null,2);$('revOutput').value=$('originalJson').value;$('revStatus').textContent='已加载原记录 #'+d.id};
+$('makeRevision').onclick=async()=>{let mode=document.querySelector('input[name=revMode]:checked').value;let sections=mode==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh'];let r=await fetch('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections})}),d=await r.json();$('revPrompt').value=d.prompt||'';$('revStatus').textContent=d.error||'已生成修订指令，复制到ChatGPT使用';};
+$('copyRev').onclick=async()=>{await navigator.clipboard.writeText($('revPrompt').value);$('revStatus').textContent='已复制';};
+$('saveRev').onclick=async()=>{if(!confirm('确认覆盖原记录 #'+id()+'？不会生成新编号。'))return;let r=await fetch('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output:$('revOutput').value,revision_mode:document.querySelector('input[name=revMode]:checked').value})}),d=await r.json();$('revStatus').textContent=d.error||d.message||'保存完成';};
+$('loadOriginal').click();
+</script>{% endblock %}

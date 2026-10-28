@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.4.9"
+APP_VERSION = "1.5.0"
 app = Flask(__name__)
 
 @app.context_processor
@@ -102,6 +102,81 @@ def api_optimize():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error":str(e)}),500
+
+@app.get("/revise")
+def revise_page():
+    rows=Listing.query.order_by(Listing.id.desc()).all()
+    return render_template("revise.html", listings=rows)
+
+@app.post("/api/revise-prompt/<int:listing_id>")
+def revise_prompt(listing_id):
+    row=Listing.query.get_or_404(listing_id)
+    data=request.get_json(silent=True) or {}
+    original=json.loads(row.output_data or '{}')
+    inp=json.loads(row.input_data or '{}')
+    if not isinstance(original,dict) or not original.get('listings'):
+        return jsonify({'error':'该记录没有完整 Part0–Part8 JSON，无法直接修订'}),400
+    sections=data.get('sections') or ['part3_description_ru','part4_description_zh']
+    allowed={'part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh'}
+    if not isinstance(sections,list) or not sections or any(x not in allowed for x in sections):
+        return jsonify({'error':'修正范围无效'}),400
+    instruction=build_chatgpt_prompt('optimize' if inp.get('mode')=='optimize' else 'generate',inp)
+    prompt=('【已有文案原记录修订，不是新商品生成】\n'
+            '保留原记录ID及全部已核验零件号、型号、品牌策略、地区/Type限制。仅修订指定字段：'+', '.join(sections)+'。\n'
+            '未指定的字段、Part0核验及compatibility_table必须原样保留；如果修订Part3，必须同时修订Part4以保持准确翻译。\n'
+            '适配型号按零件号和机型系列分段，每系列一行，末尾一句真实来源总结。不要逐个解释型号、内部核验过程或多余法律声明。\n'
+            '零件Part3必须包含30自然日保修及固定七项排除、简短安装建议；最终Part3最多6000字符。标签恰好30个，每个最多30字符，编号格式遵守既有规则。\n'
+            '仅返回一个完整可解析的JSON对象，不要省略任何原有字段。\n\n'
+            '===== 原文案JSON（修改指定字段，其他保持不变）=====\n'
+            +json.dumps(original,ensure_ascii=False,indent=2)+'\n\n===== 原商品输入资料=====\n'
+            +json.dumps(inp,ensure_ascii=False,indent=2)+'\n\n===== 最新生成规则=====\n'+instruction)
+    return jsonify({'prompt':prompt,'listing_id':row.id})
+
+@app.post("/api/revise-save/<int:listing_id>")
+def revise_save(listing_id):
+    row=Listing.query.get_or_404(listing_id)
+    data=request.get_json(silent=True) or {}
+    output=str(data.get('output') or '').strip()
+    if not output or len(output)>200000:return jsonify({'error':'请粘贴完整JSON（最多20万字符）'}),400
+    try: parsed=parse_chatgpt_json(output)
+    except ValueError as exc:return jsonify({'error':str(exc)}),400
+    if not isinstance(parsed,dict) or not isinstance(parsed.get('listings'),list) or not parsed['listings']:
+        return jsonify({'error':'必须包含完整listings数组'}),400
+    inp=json.loads(row.input_data or '{}')
+    old=json.loads(row.output_data or '{}')
+    mode=data.get('revision_mode','description')
+    if mode not in ('description','all'):
+        return jsonify({'error':'修订模式无效'}),400
+    if len(parsed['listings']) != len(old.get('listings',[])):
+        return jsonify({'error':'配置数量不得改变，请在原记录内修订'}),400
+    for i,(before,after) in enumerate(zip(old.get('listings',[]),parsed['listings']),1):
+        for key in ('part7_packaging_ru','part8_packaging_zh'):
+            if after.get(key)!=before.get(key):
+                return jsonify({'error':f'第{i}个配置的Part7/8不得修改'}),400
+        if mode=='description':
+            for key in ('part1_title_ru','part2_title_zh','part5_hashtags','part6_hashtags_zh'):
+                if after.get(key)!=before.get(key):
+                    return jsonify({'error':f'只修正Part3/4时，{key}必须保持原样'}),400
+    if mode=='description' and parsed.get('compatibility_table')!=old.get('compatibility_table'):
+        return jsonify({'error':'只修正Part3/4时适配表必须保持原样'}),400
+    required=('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh')
+    for idx,item in enumerate(parsed['listings'],1):
+        if not isinstance(item,dict) or any(not item.get(k) for k in required):return jsonify({'error':f'第{idx}个配置缺少Part1–Part8字段'}),400
+        if not isinstance(item['part5_hashtags'],list) or len(item['part5_hashtags'])!=30:return jsonify({'error':f'第{idx}个配置的标签不是30个'}),400
+        item['part5_hashtags']=normalize_tags(item['part5_hashtags'],inp.get('part_number') or inp.get('model') or '',inp.get('brand') or '')
+        for j,tag in enumerate(item['part5_hashtags'],1):
+            reason=invalid_tag_reason(tag)
+            if reason:return jsonify({'error':f'第{idx}个配置第{j}个标签{tag}：{reason}'}),400
+    try:
+        validate_tags(parsed,inp)
+        apply_policy(parsed,inp)
+        validate_description_lengths(parsed)
+    except ValueError as exc:return jsonify({'error':str(exc)}),400
+    # Important: preserve the stable database primary key; no new Listing row.
+    row.output_data=json.dumps(parsed,ensure_ascii=False)
+    row.title=str(parsed.get('master_title') or row.title)[:500]
+    db.session.commit()
+    return jsonify({'listing_id':row.id,'message':'已覆盖原记录，编号未改变'})
 
 @app.get("/parts")
 def parts():
