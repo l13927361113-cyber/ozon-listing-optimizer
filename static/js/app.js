@@ -58,8 +58,8 @@ function librarySection(title,content,kind='text'){
 }
 function parseListingOutput(out){if(out&&typeof out.raw_output==='string'){let raw=out.raw_output.trim();raw=raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');try{return JSON.parse(raw)}catch(e){return {unparsed:out.raw_output}}}return out||{};}
 let currentLibraryText='';
-document.querySelectorAll('.viewListing').forEach(btn=>btn.onclick=async()=>{try{
- const r=await fetch('/api/listings/'+btn.dataset.id);if(!r.ok)throw Error('获取失败');const j=await r.json();const out=parseListingOutput(j.output_data);const holder=$('librarySections');holder.replaceChildren();
+async function openLibraryListing(listingId){try{
+ const r=await fetch('/api/listings/'+listingId);if(!r.ok)throw Error('获取失败');const j=await r.json();const out=parseListingOutput(j.output_data);const holder=$('librarySections');holder.replaceChildren();
  $('detailTitle').textContent=j.input_data.product_name||j.title;
  const revision=out._revision_meta;
  $('detailMeta').textContent='型号 / 零件号：'+(j.model||'—')+' · 记录 #'+j.id+(revision?' · ✓ 已修订 '+revision.revision_count+'次 · '+revision.version:' · 原始文案');
@@ -85,10 +85,36 @@ document.querySelectorAll('.viewListing').forEach(btn=>btn.onclick=async()=>{try
  }
  if(out.risk_check)holder.appendChild(librarySection('合规与风险检查',JSON.stringify(out.risk_check,null,2)));
  }else{holder.appendChild(librarySection('已保存内容',JSON.stringify(out,null,2)))}
- $('libraryDetail').classList.remove('hidden');$('libraryDetail').scrollIntoView({behavior:'smooth'});
- }catch(e){alert(e.message)}});
+ $('libraryListView').classList.add('hidden');$('libraryDetail').classList.remove('hidden');history.replaceState(null,'','/workspace?listing='+encodeURIComponent(listingId));window.scrollTo({top:0,behavior:'instant'});
+ }catch(e){alert(e.message)}}
+// Library list: search, ten rows per page, and isolated detail view.
+const libraryRows=[...document.querySelectorAll('.library-record')];
+const librarySearch=$('librarySearch'),libraryFilter=$('libraryFilter');
+let libraryPage=1;const libraryPageSize=10;
+function detectPart(row){
+ const input=(()=>{try{return JSON.parse(row.dataset.input||'{}')}catch(e){return {}}})();
+ const out=(()=>{try{return JSON.parse(row.dataset.output||'{}')}catch(e){return {}}})();
+ const vals=[input.part_number,input.model,row.dataset.model,out.fact_packet?.part_number,out.part_number];
+ const text=[...vals,row.dataset.title,out.master_title,JSON.stringify(out.listings?.map(v=>[v.configuration,v.part1_title_ru])||[])].filter(Boolean).join(' ');
+ const matches=[...text.matchAll(/(?<![A-Za-z0-9])(?:[0-9]{5,8}[-–][0-9A-Za-z]{1,3}|[A-Za-z0-9]{2,7}[0-9]{2,6}[-–][0-9A-Za-z]{1,3})(?![A-Za-z0-9])/g)].map(m=>m[0].replace('–','-'));
+ const unique=[...new Set(matches)].slice(0,4);
+ row.dataset.part=unique.join(' / ');row.querySelector('.library-part').textContent=unique.length?unique.join(' / '):'未识别';
+}
+libraryRows.forEach(detectPart);
+function filteredLibrary(){const q=(librarySearch?.value||'').trim().toLowerCase(),status=libraryFilter?.value||'all';return libraryRows.filter(r=>{
+ const revised=!r.querySelector('.revisionBadge').hidden;
+ return (status==='all'||(status==='revised'?revised:!revised))&&(!q||[r.dataset.id,r.dataset.part,r.dataset.model,r.dataset.title,r.textContent].join(' ').toLowerCase().includes(q));
+});}
+function renderLibraryPage(){if(!librarySearch)return;const rows=filteredLibrary(),pages=Math.max(1,Math.ceil(rows.length/libraryPageSize));libraryPage=Math.min(Math.max(libraryPage,1),pages);
+ libraryRows.forEach(r=>r.classList.add('hidden'));rows.slice((libraryPage-1)*libraryPageSize,libraryPage*libraryPageSize).forEach(r=>r.classList.remove('hidden'));
+ $('libraryEmpty').classList.toggle('hidden',rows.length!==0);$('libraryCount').textContent='共 '+rows.length+' 条 · 每页最多10条';$('libraryPageInfo').textContent='第 '+libraryPage+' / '+pages+' 页';$('libraryPrev').disabled=libraryPage<=1;$('libraryNext').disabled=libraryPage>=pages;
+}
+if(librarySearch){librarySearch.oninput=()=>{libraryPage=1;renderLibraryPage()};libraryFilter.onchange=()=>{libraryPage=1;renderLibraryPage()};$('libraryPrev').onclick=()=>{libraryPage--;renderLibraryPage()};$('libraryNext').onclick=()=>{libraryPage++;renderLibraryPage()};renderLibraryPage();}
+document.querySelectorAll('.viewListing').forEach(b=>b.onclick=()=>openLibraryListing(b.dataset.id));
+function backToLibrary(){if(!$('libraryListView'))return;$('libraryDetail').classList.add('hidden');$('libraryListView').classList.remove('hidden');history.replaceState(null,'','/workspace');renderLibraryPage();window.scrollTo({top:0,behavior:'instant'});}
+document.querySelectorAll('[data-back-library]').forEach(b=>b.onclick=backToLibrary);
 const initialListing=new URLSearchParams(location.search).get('listing');
-if(initialListing){const btn=document.querySelector('.viewListing[data-id="'+initialListing+'"]');if(btn)setTimeout(()=>btn.click(),200)}
+if(initialListing&&document.querySelector('.viewListing[data-id="'+initialListing+'"]'))openLibraryListing(initialListing);
 if($('copyLibrary')) $('copyLibrary').onclick=async()=>{await navigator.clipboard.writeText(currentLibraryText);alert('已复制完整 JSON')};
 
 // V1.3.1: Plus is the default. API remains an explicitly labeled optional action.
@@ -117,4 +143,4 @@ document.querySelectorAll('.deleteListing').forEach(btn=>btn.onclick=async()=>{
  try{const r=await fetch('/api/listings/'+btn.dataset.id,{method:'DELETE'});if(!r.ok)throw Error('删除失败');location.reload();}catch(e){alert(e.message)}
 });
 
-if(document.querySelector('.revisionBadge'))fetch('/api/revision-status').then(r=>r.json()).then(data=>{document.querySelectorAll('.revisionBadge').forEach(b=>{if(data[b.dataset.id]){b.hidden=false;b.title='修订'+data[b.dataset.id].revision_count+'次';}})}).catch(()=>{});
+if(document.querySelector('.revisionBadge'))fetch('/api/revision-status').then(r=>r.json()).then(data=>{document.querySelectorAll('.revisionBadge').forEach(b=>{if(data[b.dataset.id]){b.hidden=false;b.title='修订'+data[b.dataset.id].revision_count+'次';}});renderLibraryPage();}).catch(()=>{});

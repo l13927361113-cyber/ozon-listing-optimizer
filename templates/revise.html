@@ -10,7 +10,7 @@
   <p><label><input type="radio" name="revMode" value="description" checked> 只修正 Part3 / Part4（推荐）</label></p>
   <p><label><input type="radio" name="revMode" value="all"> 重新优化标题、描述、标签（保留 Part7 / Part8）</label></p>
   <button type="button" id="loadOriginal" class="secondary">确认选择并读取原文案</button>
-  <p id="loadStatus" class="muted" role="status"></p>
+  <div id="loadStatus" class="revision-status" role="status" aria-live="polite"></div>
 </div>
 <div class="panel revise-simple">
   <h2>第 2 步：复制指令给 ChatGPT</h2>
@@ -24,7 +24,7 @@
   <p>把 ChatGPT 返回的<strong>完整 JSON</strong> 粘贴到下面。JSON 就是包含 Part1–Part8 的整份文案数据；不用逐段复制。</p>
   <textarea id="revOutput" rows="9" style="width:100%" placeholder="只在这里粘贴 ChatGPT 新生成的完整 JSON；不要粘贴旧文案"></textarea>
   <p><button type="button" id="saveRev">检查并保存到原记录</button></p>
-  <p id="revStatus" role="status" aria-live="polite"></p>
+  <div id="revStatus" class="revision-status" role="status" aria-live="polite"></div>
   <p class="muted">保存成功会自动打开文案库中的原记录，看到“已修订”标识。原编号不会变化。</p>
 </div>
 <script>
@@ -35,9 +35,9 @@ const params=new URLSearchParams(location.search);
 if(params.has('id') && [...$('revId').options].some(o=>o.value===params.get('id'))) $('revId').value=params.get('id');
 const mode=()=>document.querySelector('input[name="revMode"]:checked').value;
 async function request(url,options){const r=await fetch(url,options);let d=await r.json();if(!r.ok)throw Error(d.error||'操作失败');return d;}
-async function load(){try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';$('loadStatus').textContent='✓ 已读取原记录 #'+d.id+'。接下来点击第2步。';$('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').textContent='读取失败：'+e.message;}}
+async function load(){const btn=$('loadOriginal');btn.disabled=true;btn.classList.add('reading');btn.textContent='正在读取…';$('loadStatus').className='revision-status status-loading';$('loadStatus').textContent='正在读取原文案…';try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';const inp=d.input_data||{};const part=inp.part_number||inp.model||d.model||((d.title||'').match(/\b\d{5,8}-[0-9A-Za-z]{1,3}\b/)||[])[0]||'未识别';$('loadStatus').className='revision-status status-success';$('loadStatus').innerHTML='<strong>✓ 原文案读取成功</strong><small>已加载记录 #'+d.id+' · 零件号 '+String(part).replace(/[<>&]/g,'')+'，可继续第2步</small>'; $('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').className='revision-status status-error';$('loadStatus').textContent='读取失败：'+e.message;}finally{btn.disabled=false;btn.classList.remove('reading');btn.textContent='确认选择并读取原文案';}}
 $('loadOriginal').onclick=load;
-$('revId').onchange=()=>{loadedId=null;$('loadStatus').textContent='请点击“确认选择并读取原文案”';$('revPrompt').value='';$('revOutput').value='';};
+$('revId').onchange=()=>{loadedId=null;$('loadStatus').className='revision-status';$('loadStatus').textContent='请点击“确认选择并读取原文案”';$('revPrompt').value='';$('revOutput').value='';};
 $('copyRev').onclick=async()=>{try{
 if(loadedId!==String(id()))await load();if(!loadedId)throw Error('未能读取原记录');
 const sections=mode()==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'];
@@ -50,11 +50,11 @@ $('saveRev').onclick=async()=>{try{
 if(loadedId!==String(id()))throw Error('请先完成第1步读取原记录');
 const output=$('revOutput').value.trim();if(!output)throw Error('请先把 ChatGPT 新生成的完整 JSON 粘贴到第3步');
 if(!confirm('确认把新文案覆盖原记录 #'+id()+' 吗？记录编号不会改变。'))return;
-$('saveRev').disabled=true;$('revStatus').textContent='正在检查并保存…';
+$('saveRev').disabled=true;$('saveRev').classList.add('reading');$('saveRev').textContent='正在检查并保存…';$('revStatus').className='revision-status status-loading';$('revStatus').textContent='正在验证内容并写入原记录…';
 const d=await request('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output,revision_mode:mode()})});
-$('revStatus').textContent='✓ '+d.message+'，正在打开文案库…';
+$('revStatus').className='revision-status status-success';$('revStatus').innerHTML='<strong>✓ 文案修订保存成功</strong><small>原记录 #'+d.listing_id+' 已覆盖，编号不变。正在打开文案库…</small>'; 
 window.location.href=d.redirect_url||'/workspace?listing='+id();
-}catch(e){$('revStatus').textContent='保存失败：'+e.message;}finally{$('saveRev').disabled=false;}};
+}catch(e){$('revStatus').className='revision-status status-error';$('revStatus').textContent='保存失败：'+e.message;}finally{$('saveRev').disabled=false;$('saveRev').classList.remove('reading');$('saveRev').textContent='检查并保存到原记录';}};
 load();
 })();
 </script>{% endblock %}

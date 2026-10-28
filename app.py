@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.5.3"
+APP_VERSION = "1.5.4"
 app = Flask(__name__)
 
 @app.context_processor
@@ -134,7 +134,7 @@ def revise_prompt(listing_id):
             '上述“Двигатель”仅适用于电机；转子/定子/减速箱应替换为准确俄语零件名称。不得原样照抄占位符。\n'
             '禁止在新适配段落后残留旧句：例如“某型号来自卖家验证”“其他型号来自维修目录”“列入清单不代表所有版本都适配”“如果旧电机编号不同请核对”等泛泛解释。\n'
             '若有真实且影响购买的地区/Type/电压限制，必须在对应型号组中简明保留；不能一律删除具体限制。\n'
-            '核验来源总结只能如实反映证据：卖家验证与第三方资料不得合称为全部官方确认；无可靠交叉核验则不写“制造商及维修目录交叉核验”。\n'
+            '核验来源总结是适配段落的必需收尾句，不能省略。若实际同时具备制造商零件目录与专业维修备件目录的直接对应证据，固定写：Совместимость подтверждена каталогами производителя и специализированными каталогами запчастей. 中文对应：适配关系已通过制造商零件目录及专业维修备件目录交叉核验。若只有卖家验证或单一来源，必须改用如实反映证据的简短总结，禁止虚构交叉核验。\n'
             'part4_description_zh必须同步整体替换对应中文适配段落，保持相同分组与机型，不残留旧核验解释。\n'
             '核验详细证据、来源级别、冲突解释应在Part0/兼容表；本次仅修Part3/4时不要更改这些字段。\n'
             '【修订完成自检】新旧适配段落不可同时存在；Part3/4每个机型只在适配段出现一次；检查旧冗余句已被删除。\n'
@@ -315,7 +315,7 @@ def revision_status():
 
 @app.get("/workspace")
 def workspace():
-    rows=Listing.query.order_by(Listing.created_at.desc()).all()
+    rows=Listing.query.order_by(Listing.id.desc()).all()
     return render_template("workspace.html", listings=rows)
 
 @app.delete("/api/listings/<int:listing_id>")
