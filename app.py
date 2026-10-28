@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.4.5"
+APP_VERSION = "1.4.6"
 app = Flask(__name__)
 
 @app.context_processor

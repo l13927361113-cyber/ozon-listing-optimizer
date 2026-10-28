@@ -1,0 +1,1 @@
+V1.4.6: old model independent verification plus reverse part-number search for missing compatible machines; evidence-based additions; 30 Ozon hashtags grouped by search intent and category relevance; hashtag length maximum 30 characters. No guarantee of live search volume. Part7/8 unchanged.

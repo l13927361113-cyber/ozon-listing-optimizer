@@ -37,7 +37,7 @@ def parse_chatgpt_json(raw):
     raise ValueError('未找到包含 listings 的完整 JSON 对象，请复制 ChatGPT 的完整生成结果。')
 
 
-TAG_MAX_LENGTH = 60  # conservative internal limit; verify current OZON category limits before publishing
+TAG_MAX_LENGTH = 30  # Ozon hashtag maximum length
 TAG_PATTERN = re.compile(r"#[а-яёА-ЯЁa-zA-Z0-9_]+")
 
 def invalid_tag_reason(tag):
