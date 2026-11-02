@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.5.5"
+APP_VERSION = "1.5.6"
 app = Flask(__name__)
 
 @app.context_processor
@@ -120,10 +120,23 @@ def revise_prompt(listing_id):
     allowed={'part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh'}
     if not isinstance(sections,list) or not sections or any(x not in allowed for x in sections):
         return jsonify({'error':'修正范围无效'}),400
+    # Seller-supplied evidence is added to the manual ChatGPT prompt, not searched by Render.
+    revision_request=str(data.get('revision_request') or '').strip()
+    evidence_notes=str(data.get('evidence_notes') or '').strip()
+    reference_links=str(data.get('reference_links') or '').strip()
+    if any(len(x)>12000 for x in (revision_request,evidence_notes,reference_links)):
+        return jsonify({'error':'单项补充资料不能超过12000字符'}),400
+    if not revision_request:
+        return jsonify({'error':'请先填写本次需要修正的具体要求'}),400
+    evidence_block=('\n===== 本次卖家修正要求（优先执行）=====\n'+revision_request+
+        '\n===== 新增卖家核验资料 / 商家资料（须区分证据来源）=====\n'+(evidence_notes or '无')+
+        '\n===== 参考链接（请在 ChatGPT 中联网核验）=====\n'+(reference_links or '无')+
+        '\n===== 截图操作提示 =====\n如果用户提供了商品截图、零件标签或爆炸图，请结合用户在 ChatGPT 当前对话中上传的图片进行分析；网站不会自动传输本地图片给 ChatGPT。\n'
+        '\n【联网核验工作流】由 ChatGPT 主动搜索官方零件目录及可信维修资料；Render 不负责联网检索。保留卖家已验证型号，除非查到明确矛盾；扩展未列出的适配机器；调查相近零件号是否属于替代件，不能因同电压/同机型就认定可互换。对新增型号和替代关系在 Part0、compatibility_table 和 risk_check 标注实际证据及链接；不能伪造官方核验。\n')
     instruction=build_chatgpt_prompt('optimize' if inp.get('mode')=='optimize' else 'generate',inp)
     prompt=('【已有文案原记录修订，不是新商品生成】\n'
             '保留原记录ID及全部已核验零件号、型号、品牌策略、地区/Type限制。仅修订指定字段：'+', '.join(sections)+'。\n'
-            '未指定的字段、Part0核验及compatibility_table必须原样保留；如果修订Part3，必须同时修订Part4以保持准确翻译。\n'
+            '未指定的 Part1–Part8 字段必须原样保留；若发现新的适配关系，允许同步更新 Part0、compatibility_table 和 risk_check（必须有证据）。如果修订Part3，必须同时修订Part4以保持准确翻译。\n'
             '【必须执行的修订动作：完全替换旧适配段落，不是仅添加新段落】\n'
             '在每个part3_description_ru中，找出旧的“Совместимость/适配型号”段落及其紧随的逐型号来源解释、卖家验证解释、笼统版本免责声明，整体删除并替换为以下结构：\n'
             'Совместимость\n'
@@ -136,12 +149,11 @@ def revise_prompt(listing_id):
             '若有真实且影响购买的地区/Type/电压限制，必须在对应型号组中简明保留；不能一律删除具体限制。\n'
             '适配段落结尾必须原文保留两句固定总结，禁止改写或省略：俄文：Совместимость подтверждена каталогами производителя и специализированными каталогами запчастей. 中文：适配关系已通过制造商零件目录及专业维修备件目录交叉核验。 本句是卖家要求的固定展示用语，Part0和兼容表仍必须如实记载实际来源，不得伪造官方证据。\n'
             'part4_description_zh必须同步整体替换对应中文适配段落，保持相同分组与机型，不残留旧核验解释。\n'
-            '核验详细证据、来源级别、冲突解释应在Part0/兼容表；本次仅修Part3/4时不要更改这些字段。\n'
+            '核验详细证据、来源级别、冲突解释应在Part0/兼容表；如本次修订发现新增机型，应同步更新这些内部字段。\n'
             '【修订完成自检】新旧适配段落不可同时存在；Part3/4每个机型只在适配段出现一次；检查旧冗余句已被删除。\n'
             '零件Part3必须包含30自然日保修及固定七项排除、简短安装建议；最终Part3最多6000字符。标签恰好30个，每个最多30字符，编号格式遵守既有规则。\n'
             '仅返回一个完整可解析的JSON对象，不要省略任何原有字段。\n\n'
-            '===== 原文案JSON（修改指定字段，其他保持不变）=====\n'
-            +json.dumps(original,ensure_ascii=False,indent=2)+'\n\n===== 原商品输入资料=====\n'
+            +evidence_block+'\n===== 原文案JSON（修改指定字段，其他保持不变）=====\n'+json.dumps(original,ensure_ascii=False,indent=2)+'\n\n===== 原商品输入资料=====\n'
             +json.dumps(inp,ensure_ascii=False,indent=2)+'\n\n===== 最新生成规则=====\n'+instruction+'\n\n【修订任务最终覆盖指令】无论前面旧规则如何描述，零件适配段落必须保留固定俄文结尾：'+'Совместимость подтверждена каталогами производителя и специализированными каталогами запчастей.'+'；固定中文结尾：'+'适配关系已通过制造商零件目录及专业维修备件目录交叉核验。'+'。其他证据来源细节留在Part0，不得在买家文案中添加冗长待核验解释。')
     return jsonify({'prompt':prompt,'listing_id':row.id})
 
@@ -170,8 +182,6 @@ def revise_save(listing_id):
             for key in ('part1_title_ru','part2_title_zh','part5_hashtags','part6_hashtags_zh'):
                 if after.get(key)!=before.get(key):
                     return jsonify({'error':f'只修正Part3/4时，{key}必须保持原样'}),400
-    if mode=='description' and parsed.get('compatibility_table')!=old.get('compatibility_table'):
-        return jsonify({'error':'只修正Part3/4时适配表必须保持原样'}),400
     required=('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh')
     for idx,item in enumerate(parsed['listings'],1):
         if not isinstance(item,dict) or any(not item.get(k) for k in required):return jsonify({'error':f'第{idx}个配置缺少Part1–Part8字段'}),400
@@ -191,6 +201,9 @@ def revise_save(listing_id):
         for field in ('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'):
             if before.get(field)!=after.get(field):
                 changed_fields.append(f'配置{i} {field}')
+    if parsed.get('compatibility_table')!=old.get('compatibility_table'): changed_fields.append('compatibility_table')
+    if parsed.get('analysis_summary')!=old.get('analysis_summary'): changed_fields.append('analysis_summary')
+    if parsed.get('risk_check')!=old.get('risk_check'): changed_fields.append('risk_check')
     if not changed_fields:
         return jsonify({'error':'修订内容与原记录相同，没有任何文案变化；请先将ChatGPT生成的新JSON粘贴到第3步，再保存。'}),400
     from datetime import datetime as _dt

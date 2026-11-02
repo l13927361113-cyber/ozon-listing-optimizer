@@ -7,10 +7,25 @@
   <select id="revId" style="width:100%;padding:12px;margin:10px 0">
     {% for x in listings %}<option value="{{x.id}}">#{{x.id}} · {{x.title}}</option>{% endfor %}
   </select>
-  <p><label><input type="radio" name="revMode" value="description" checked> 只修正 Part3 / Part4（推荐）</label></p>
-  <p><label><input type="radio" name="revMode" value="all"> 重新优化标题、描述、标签（保留 Part7 / Part8）</label></p>
+  <div class="revision-modes" role="group" aria-label="修订范围">
+    <label class="revision-mode"><input type="radio" name="revMode" value="description" checked><span><strong>只修正 Part3 / Part4</strong><small>仅调整描述和中文翻译；如新增适配型号，同步更新内部适配表</small></span></label>
+    <label class="revision-mode"><input type="radio" name="revMode" value="all"><span><strong>重新优化标题、描述、标签</strong><small>适合新增适配型号后同步优化 SEO；Part7 / Part8 保持不变</small></span></label>
+  </div>
   <button type="button" id="loadOriginal" class="secondary">确认选择并读取原文案</button>
   <div id="loadStatus" class="revision-status" role="status" aria-live="polite"></div>
+  <div class="revision-evidence">
+    <h3>补充资料与本次修正要求</h3>
+    <p class="muted">请说明哪里需要修正、你查到了哪些新型号。系统会把内容放进第2步的 ChatGPT 指令中。</p>
+    <label for="revisionRequest">本次需要修正什么？ <span class="required">必填</span></label>
+    <textarea id="revisionRequest" rows="4" maxlength="12000" placeholder="例如：保留原来已核验的9553NB；淘宝卖家显示627080-7还适配9553HN，请联网核查并补充其他遗漏型号；同时确认621713-6、621718-6是否能替代，不要未经确认就写通用。"></textarea>
+    <label for="evidenceNotes">补充核验资料 / 卖家描述（可选）</label>
+    <textarea id="evidenceNotes" rows="4" maxlength="12000" placeholder="例如：淘宝商家A的商品标注9553NB、9553HN、9555HN；包装标签为627080-7，220–240V。请区分商家声明和官方证据。"></textarea>
+    <label for="referenceLinks">参考链接（可选，一行一个）</label>
+    <textarea id="referenceLinks" rows="2" maxlength="12000" placeholder="https://..."></textarea>
+    <label for="referenceImages">参考截图（可选，多选）</label>
+    <input id="referenceImages" type="file" accept="image/*" multiple>
+    <p id="imageHelp" class="muted">截图只在当前浏览器中选择，不会自动上传至 ChatGPT。复制指令后，请将这些图片一并上传到 ChatGPT 对话中。</p>
+  </div>
 </div>
 <div class="panel revise-simple">
   <h2>第 2 步：复制指令给 ChatGPT</h2>
@@ -34,6 +49,7 @@ let loadedId=null;
 const params=new URLSearchParams(location.search);
 if(params.has('id') && [...$('revId').options].some(o=>o.value===params.get('id'))) $('revId').value=params.get('id');
 const mode=()=>document.querySelector('input[name="revMode"]:checked').value;
+const selectedImages=()=>Array.from($('referenceImages').files||[]).map(f=>f.name);
 async function request(url,options){const r=await fetch(url,options);let d=await r.json();if(!r.ok)throw Error(d.error||'操作失败');return d;}
 async function load(){const btn=$('loadOriginal');btn.disabled=true;btn.classList.add('reading');btn.textContent='正在读取…';$('loadStatus').className='revision-status status-loading';$('loadStatus').textContent='正在读取原文案…';try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';const inp=d.input_data||{};const part=inp.part_number||inp.model||d.model||((d.title||'').match(/\b\d{5,8}-[0-9A-Za-z]{1,3}\b/)||[])[0]||'未识别';$('loadStatus').className='revision-status status-success';$('loadStatus').innerHTML='<strong>✓ 原文案读取成功</strong><small>已加载记录 #'+d.id+' · 零件号 '+String(part).replace(/[<>&]/g,'')+'，可继续第2步</small>'; $('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').className='revision-status status-error';$('loadStatus').textContent='读取失败：'+e.message;}finally{btn.disabled=false;btn.classList.remove('reading');btn.textContent='确认选择并读取原文案';}}
 $('loadOriginal').onclick=load;
@@ -41,9 +57,10 @@ $('revId').onchange=()=>{loadedId=null;$('loadStatus').className='revision-statu
 $('copyRev').onclick=async()=>{try{
 if(loadedId!==String(id()))await load();if(!loadedId)throw Error('未能读取原记录');
 const sections=mode()==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'];
-const d=await request('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections})});
-$('revPrompt').value=d.prompt||'';
-try{await navigator.clipboard.writeText(d.prompt);$('promptStatus').textContent='✓ 指令已复制！现在打开 ChatGPT 粘贴，生成后回来进行第3步。';}
+const revision_request=$('revisionRequest').value.trim();if(!revision_request)throw Error('请先填写「本次需要修正什么」');
+const d=await request('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections,revision_request,evidence_notes:$('evidenceNotes').value,reference_links:$('referenceLinks').value})});
+$('revPrompt').value=(d.prompt||'')+(selectedImages().length?'\n\n【用户准备随本指令上传的截图】'+selectedImages().join('、')+'。请先等待用户实际上传这些图片后再核验。':'');
+try{await navigator.clipboard.writeText($('revPrompt').value);$('promptStatus').textContent='✓ 指令已复制！请在 ChatGPT 粘贴'+(selectedImages().length?'，并同时上传选中的 '+selectedImages().length+' 张截图':'')+'，生成后回来进行第3步。';}
 catch(e){$('promptStatus').textContent='复制被浏览器阻止：请展开下方“查看修订指令”并手动复制。';}
 }catch(e){$('promptStatus').textContent='生成指令失败：'+e.message;}};
 $('saveRev').onclick=async()=>{try{
