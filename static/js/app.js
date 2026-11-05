@@ -94,12 +94,27 @@ let libraryPage=1;const libraryPageSize=10;
 function detectPart(row){
  const input=(()=>{try{return JSON.parse(row.dataset.input||'{}')}catch(e){return {}}})();
  const out=(()=>{try{return JSON.parse(row.dataset.output||'{}')}catch(e){return {}}})();
- const vals=[input.part_number,input.model,row.dataset.model,out.fact_packet?.part_number,out.part_number];
- const text=[...vals,row.dataset.title,out.master_title,JSON.stringify(out.listings?.map(v=>[v.configuration,v.part1_title_ru])||[])].filter(Boolean).join(' ');
- const matches=[...text.matchAll(/(?<![A-Za-z0-9])(?:[0-9]{5,8}[-–][0-9A-Za-z]{1,3}|[A-Za-z0-9]{2,7}[0-9]{2,6}[-–][0-9A-Za-z]{1,3})(?![A-Za-z0-9])/g)].map(m=>m[0].replace('–','-'));
- const unique=[...new Set(matches)].slice(0,4);
+ const text=[row.dataset.title,row.dataset.model,out.master_title,...(out.listings||[]).flatMap(v=>[v.part1_title_ru,v.part2_title_zh,v.part7_packaging_ru,v.part8_packaging_zh])].filter(Boolean).join(' ');
+ const pattern=/(?<![A-Za-z0-9])(?:[A-Z]{1,4}\d{4,8}(?:-[A-Z0-9]{1,4})?|\d{5,10}[A-Z0-9]{0,4}(?:-[A-Z0-9]{1,4})?)(?![A-Za-z0-9])/gi;
+ const reject=/^(?:DCF|DCD|DCS|DCG|DCH|GSR|GSB|GWS|TD|DT|SB|BH|RB|ARS|CAM|JM|QD)\d/i;
+ const matches=[...text.matchAll(pattern)].map(m=>m[0]).filter(x=>!reject.test(x));
+ const explicit=[input.part_number,out.fact_packet?.part_number,out.part_number].filter(Boolean).map(String);
+ const unique=[...new Set((explicit.length?explicit:matches).flatMap(x=>x.split(/\s*\/\s*/)).filter(x=>x&&!reject.test(x)))].slice(0,4);
  row.dataset.part=unique.join(' / ');row.querySelector('.library-part').textContent=unique.length?unique.join(' / '):'未识别';
 }
+async function editLibraryPart(row){
+ const current=row.dataset.part||'';
+ const entered=window.prompt('修改商品档案零件号（多个编号用 / 分隔）。仅修改档案，不自动改写原文案：',current);
+ if(entered===null)return;
+ const value=entered.trim();if(!value)return alert('请输入零件号');
+ try{
+  const res=await fetch('/api/listings/'+row.dataset.id+'/part-number',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({part_number:value})});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'保存失败');
+  const input=JSON.parse(row.dataset.input||'{}');input.part_number=data.part_number;row.dataset.input=JSON.stringify(input);row.dataset.model=data.part_number;
+  detectPart(row);renderLibraryPage();alert(data.message);
+ }catch(e){alert('保存失败：'+e.message)}
+}
+document.querySelectorAll('.editLibraryPart').forEach(btn=>btn.addEventListener('click',()=>editLibraryPart(btn.closest('.library-record'))));
 libraryRows.forEach(detectPart);
 function filteredLibrary(){const q=(librarySearch?.value||'').trim().toLowerCase(),status=libraryFilter?.value||'all';return libraryRows.filter(r=>{
  const revised=!r.querySelector('.revisionBadge').hidden;

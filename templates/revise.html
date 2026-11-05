@@ -9,10 +9,17 @@
   </select>
   <div class="revision-modes" role="group" aria-label="修订范围">
     <label class="revision-mode"><input type="radio" name="revMode" value="description" checked><span><strong>只修正 Part3 / Part4</strong><small>仅调整描述和中文翻译；如新增适配型号，同步更新内部适配表</small></span></label>
-    <label class="revision-mode"><input type="radio" name="revMode" value="all"><span><strong>重新优化标题、描述、标签</strong><small>适合新增适配型号后同步优化 SEO；Part7 / Part8 保持不变</small></span></label>
+    <label class="revision-mode"><input type="radio" name="revMode" value="all"><span><strong>重新优化标题、描述、标签</strong><small>适合修正零件号或新增适配型号；零件号变更时 Part7 / Part8 也需同步核验</small></span></label>
   </div>
   <button type="button" id="loadOriginal" class="secondary">确认选择并读取原文案</button>
   <div id="loadStatus" class="revision-status" role="status" aria-live="polite"></div>
+  <div class="revision-evidence part-number-edit">
+    <h3>零件号识别与手动修正</h3>
+    <p class="muted">自动识别失败或识别错误时，可在这里填写正确零件号。支持字母开头、纯数字、数字加连字符及混合编号，例如 N149721、N091170、629851-8、2609120395。</p>
+    <label for="revisionPartNumber">本商品正确零件号</label>
+    <input id="revisionPartNumber" type="text" maxlength="100" placeholder="例如：N149721" autocomplete="off">
+    <small id="partNumberStatus" class="muted">读取原文案后自动提取；请核对后再复制修订指令。</small>
+  </div>
   <div class="revision-evidence">
     <h3>补充资料与本次修正要求</h3>
     <p class="muted">请说明哪里需要修正、你查到了哪些新型号。系统会把内容放进第2步的 ChatGPT 指令中。</p>
@@ -50,15 +57,23 @@ const params=new URLSearchParams(location.search);
 if(params.has('id') && [...$('revId').options].some(o=>o.value===params.get('id'))) $('revId').value=params.get('id');
 const mode=()=>document.querySelector('input[name="revMode"]:checked').value;
 const selectedImages=()=>Array.from($('referenceImages').files||[]).map(f=>f.name);
+function detectPartNumber(d,inp){
+ const out=d.output_data||{};const values=[inp.part_number,inp.verified_data_packet,out.fact_packet?.part_number,out.part_number];
+ for(const v of values){const m=String(v||'').match(/^[A-Z]{1,4}\d{4,8}(?:[-][A-Z0-9]{1,4})?$|^\d{5,10}(?:[-][A-Z0-9]{1,4})?$/i);if(m)return m[0];}
+ const text=[d.title,d.model,out.master_title,...(out.listings||[]).flatMap(x=>[x.configuration,x.part1_title_ru,x.part2_title_zh,x.part7_packaging_ru,x.part8_packaging_zh])].filter(Boolean).join(' ');
+ const matches=text.match(/(?<![A-Z0-9])(?:[A-Z]{1,4}\d{4,8}(?:-[A-Z0-9]{1,4})?|\d{5,10}[A-Z0-9]{0,4}(?:-[A-Z0-9]{1,4})?)(?![A-Z0-9])/gi)||[];
+ const reject=/^(?:DCF|DCD|DCS|DCG|DCH|GSR|GSB|GWS|GA|TD|DT|SB|BH|RB|ARS|CAM|JM|QD)\d/i;
+ return matches.find(x=>!reject.test(x))||'';
+}
 async function request(url,options){const r=await fetch(url,options);let d=await r.json();if(!r.ok)throw Error(d.error||'操作失败');return d;}
-async function load(){const btn=$('loadOriginal');btn.disabled=true;btn.classList.add('reading');btn.textContent='正在读取…';$('loadStatus').className='revision-status status-loading';$('loadStatus').textContent='正在读取原文案…';try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';const inp=d.input_data||{};const part=inp.part_number||inp.model||d.model||((d.title||'').match(/\b\d{5,8}-[0-9A-Za-z]{1,3}\b/)||[])[0]||'未识别';$('loadStatus').className='revision-status status-success';$('loadStatus').innerHTML='<strong>✓ 原文案读取成功</strong><small>已加载记录 #'+d.id+' · 零件号 '+String(part).replace(/[<>&]/g,'')+'，可继续第2步</small>'; $('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').className='revision-status status-error';$('loadStatus').textContent='读取失败：'+e.message;}finally{btn.disabled=false;btn.classList.remove('reading');btn.textContent='确认选择并读取原文案';}}
+async function load(){const btn=$('loadOriginal');btn.disabled=true;btn.classList.add('reading');btn.textContent='正在读取…';$('loadStatus').className='revision-status status-loading';$('loadStatus').textContent='正在读取原文案…';try{const d=await request('/api/listings/'+id());loadedId=String(d.id);$('revOutput').value='';$('revPrompt').value='';const inp=d.input_data||{};const part=detectPartNumber(d,inp);$('revisionPartNumber').value=part||'';$('partNumberStatus').textContent=part?'已自动识别，请核对零件号是否正确。':'未能自动识别，请手动填写正确零件号后继续。';const displayPart=part||'未识别';$('loadStatus').className='revision-status status-success';$('loadStatus').innerHTML='<strong>✓ 原文案读取成功</strong><small>已加载记录 #'+d.id+' · 零件号 '+String(displayPart).replace(/[<>&]/g,'')+'，可继续第2步</small>'; $('promptStatus').textContent='';$('revStatus').textContent='';}catch(e){loadedId=null;$('loadStatus').className='revision-status status-error';$('loadStatus').textContent='读取失败：'+e.message;}finally{btn.disabled=false;btn.classList.remove('reading');btn.textContent='确认选择并读取原文案';}}
 $('loadOriginal').onclick=load;
-$('revId').onchange=()=>{loadedId=null;$('loadStatus').className='revision-status';$('loadStatus').textContent='请点击“确认选择并读取原文案”';$('revPrompt').value='';$('revOutput').value='';};
+$('revId').onchange=()=>{loadedId=null;$('loadStatus').className='revision-status';$('loadStatus').textContent='请点击“确认选择并读取原文案”';$('revPrompt').value='';$('revOutput').value='';$('revisionPartNumber').value='';$('partNumberStatus').textContent='读取原文案后自动提取；请核对后再复制修订指令。';};
 $('copyRev').onclick=async()=>{try{
 if(loadedId!==String(id()))await load();if(!loadedId)throw Error('未能读取原记录');
 const sections=mode()==='description'?['part3_description_ru','part4_description_zh']:['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'];
 const revision_request=$('revisionRequest').value.trim();if(!revision_request)throw Error('请先填写「本次需要修正什么」');
-const d=await request('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections,revision_request,evidence_notes:$('evidenceNotes').value,reference_links:$('referenceLinks').value})});
+const d=await request('/api/revise-prompt/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sections,revision_request,evidence_notes:$('evidenceNotes').value,reference_links:$('referenceLinks').value,part_number:$('revisionPartNumber').value.trim()})});
 $('revPrompt').value=(d.prompt||'')+(selectedImages().length?'\n\n【用户准备随本指令上传的截图】'+selectedImages().join('、')+'。请先等待用户实际上传这些图片后再核验。':'');
 try{await navigator.clipboard.writeText($('revPrompt').value);$('promptStatus').textContent='✓ 指令已复制！请在 ChatGPT 粘贴'+(selectedImages().length?'，并同时上传选中的 '+selectedImages().length+' 张截图':'')+'，生成后回来进行第3步。';}
 catch(e){$('promptStatus').textContent='复制被浏览器阻止：请展开下方“查看修订指令”并手动复制。';}
@@ -68,7 +83,7 @@ if(loadedId!==String(id()))throw Error('请先完成第1步读取原记录');
 const output=$('revOutput').value.trim();if(!output)throw Error('请先把 ChatGPT 新生成的完整 JSON 粘贴到第3步');
 if(!confirm('确认把新文案覆盖原记录 #'+id()+' 吗？记录编号不会改变。'))return;
 $('saveRev').disabled=true;$('saveRev').classList.add('reading');$('saveRev').textContent='正在检查并保存…';$('revStatus').className='revision-status status-loading';$('revStatus').textContent='正在验证内容并写入原记录…';
-const d=await request('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output,revision_mode:mode()})});
+const d=await request('/api/revise-save/'+id(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({output,revision_mode:mode(),part_number:$('revisionPartNumber').value.trim()})});
 $('revStatus').className='revision-status status-success';$('revStatus').innerHTML='<strong>✓ 文案修订保存成功</strong><small>原记录 #'+d.listing_id+' 已覆盖，编号不变。正在打开文案库…</small>'; 
 window.location.href=d.redirect_url||'/workspace?listing='+id();
 }catch(e){$('revStatus').className='revision-status status-error';$('revStatus').textContent='保存失败：'+e.message;}finally{$('saveRev').disabled=false;$('saveRev').classList.remove('reading');$('saveRev').textContent='检查并保存到原记录';}};

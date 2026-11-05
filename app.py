@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
 
 load_dotenv()
-APP_VERSION = "1.5.6"
+APP_VERSION = "1.5.8"
 app = Flask(__name__)
 
 @app.context_processor
@@ -124,7 +124,10 @@ def revise_prompt(listing_id):
     revision_request=str(data.get('revision_request') or '').strip()
     evidence_notes=str(data.get('evidence_notes') or '').strip()
     reference_links=str(data.get('reference_links') or '').strip()
-    if any(len(x)>12000 for x in (revision_request,evidence_notes,reference_links)):
+    corrected_part_number=str(data.get('part_number') or '').strip()
+    if corrected_part_number and corrected_part_number != str(inp.get('part_number') or row.model or '').strip():
+        sections=list(dict.fromkeys(sections+['part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh']))
+    if any(len(x)>12000 for x in (revision_request,evidence_notes,reference_links,corrected_part_number)):
         return jsonify({'error':'单项补充资料不能超过12000字符'}),400
     if not revision_request:
         return jsonify({'error':'请先填写本次需要修正的具体要求'}),400
@@ -132,11 +135,13 @@ def revise_prompt(listing_id):
         '\n===== 新增卖家核验资料 / 商家资料（须区分证据来源）=====\n'+(evidence_notes or '无')+
         '\n===== 参考链接（请在 ChatGPT 中联网核验）=====\n'+(reference_links or '无')+
         '\n===== 截图操作提示 =====\n如果用户提供了商品截图、零件标签或爆炸图，请结合用户在 ChatGPT 当前对话中上传的图片进行分析；网站不会自动传输本地图片给 ChatGPT。\n'
-        '\n【联网核验工作流】由 ChatGPT 主动搜索官方零件目录及可信维修资料；Render 不负责联网检索。保留卖家已验证型号，除非查到明确矛盾；扩展未列出的适配机器；调查相近零件号是否属于替代件，不能因同电压/同机型就认定可互换。对新增型号和替代关系在 Part0、compatibility_table 和 risk_check 标注实际证据及链接；不能伪造官方核验。\n')
+        '\n【联网核验工作流】由 ChatGPT 主动搜索官方零件目录及可信维修资料；Render 不负责联网检索。保留卖家已验证型号，除非查到明确矛盾；扩展未列出的适配机器；调查相近零件号是否属于替代件，不能因同电压/同机型就认定可互换。对新增型号和替代关系在 Part0、compatibility_table 和 risk_check 标注实际证据及链接；不能伪造官方核验。\n'
+        '【得伟 DeWALT / 史丹利 Stanley 专项规则】以中国市场机器型号及Type为首要核验入口，再交叉比对俄罗斯/欧美市场型号。地区型号名称不同但制造商目录确认使用相同零件号时，应归入同一适配组；同型号不同Type或不同地区若零件号不同，必须分开。不同零件号只有在制造商资料明确替代/互换或多份可靠维修目录明确支持时才可判定替代；不得仅凭外观、电压或商家标题认定通用。商家资料是线索，不等同制造商确认。主动寻找用户未列出的适配型号，并标注中国/俄罗斯/欧美市场、Type及证据。\n'
+        + (('【用户手动确认/修正的零件号】本次正确零件号为：'+corrected_part_number+'。请将其作为本次核验主编号，同时检查原记录编号是否误填、是否存在替代号；不要把机器型号误当零件号。\n') if corrected_part_number else ''))
     instruction=build_chatgpt_prompt('optimize' if inp.get('mode')=='optimize' else 'generate',inp)
     prompt=('【已有文案原记录修订，不是新商品生成】\n'
             '保留原记录ID及全部已核验零件号、型号、品牌策略、地区/Type限制。仅修订指定字段：'+', '.join(sections)+'。\n'
-            '未指定的 Part1–Part8 字段必须原样保留；若发现新的适配关系，允许同步更新 Part0、compatibility_table 和 risk_check（必须有证据）。如果修订Part3，必须同时修订Part4以保持准确翻译。\n'
+            '未指定的 Part1–Part8 字段必须原样保留；如本次更正了实际销售零件号，则所有包含旧编号的标题、描述、标签、包装清单须同步更正，其他内容保持；若发现新的适配关系，允许同步更新 Part0、compatibility_table 和 risk_check（必须有证据）。如果修订Part3，必须同时修订Part4以保持准确翻译。\n'
             '【必须执行的修订动作：完全替换旧适配段落，不是仅添加新段落】\n'
             '在每个part3_description_ru中，找出旧的“Совместимость/适配型号”段落及其紧随的逐型号来源解释、卖家验证解释、笼统版本免责声明，整体删除并替换为以下结构：\n'
             'Совместимость\n'
@@ -169,14 +174,21 @@ def revise_save(listing_id):
         return jsonify({'error':'必须包含完整listings数组'}),400
     inp=json.loads(row.input_data or '{}')
     old=json.loads(row.output_data or '{}')
+    corrected_part_number=str(data.get('part_number') or '').strip()
+    part_changed=bool(corrected_part_number and corrected_part_number != str(inp.get('part_number') or row.model or '').strip())
+    if corrected_part_number:
+        inp['part_number']=corrected_part_number
+        row.model=corrected_part_number[:200]
     mode=data.get('revision_mode','description')
+    if part_changed and mode == 'description':
+        return jsonify({'error':'已修改零件号，请选择“重新优化标题、描述、标签”，确保所有文案编号一致'}),400
     if mode not in ('description','all'):
         return jsonify({'error':'修订模式无效'}),400
     if len(parsed['listings']) != len(old.get('listings',[])):
         return jsonify({'error':'配置数量不得改变，请在原记录内修订'}),400
     for i,(before,after) in enumerate(zip(old.get('listings',[]),parsed['listings']),1):
         for key in ('part7_packaging_ru','part8_packaging_zh'):
-            if after.get(key)!=before.get(key):
+            if not part_changed and after.get(key)!=before.get(key):
                 return jsonify({'error':f'第{i}个配置的Part7/8不得修改'}),400
         if mode=='description':
             for key in ('part1_title_ru','part2_title_zh','part5_hashtags','part6_hashtags_zh'):
@@ -198,12 +210,13 @@ def revise_save(listing_id):
     # Do not report success if the user pasted the unchanged original JSON.
     changed_fields=[]
     for i,(before,after) in enumerate(zip(old['listings'],parsed['listings']),1):
-        for field in ('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh'):
+        for field in ('part1_title_ru','part2_title_zh','part3_description_ru','part4_description_zh','part5_hashtags','part6_hashtags_zh','part7_packaging_ru','part8_packaging_zh'):
             if before.get(field)!=after.get(field):
                 changed_fields.append(f'配置{i} {field}')
     if parsed.get('compatibility_table')!=old.get('compatibility_table'): changed_fields.append('compatibility_table')
     if parsed.get('analysis_summary')!=old.get('analysis_summary'): changed_fields.append('analysis_summary')
     if parsed.get('risk_check')!=old.get('risk_check'): changed_fields.append('risk_check')
+    if part_changed: changed_fields.append('part_number')
     if not changed_fields:
         return jsonify({'error':'修订内容与原记录相同，没有任何文案变化；请先将ChatGPT生成的新JSON粘贴到第3步，再保存。'}),400
     from datetime import datetime as _dt
@@ -216,9 +229,26 @@ def revise_save(listing_id):
     }
     # Important: preserve the stable database primary key; no new Listing row.
     row.output_data=json.dumps(parsed,ensure_ascii=False)
+    if corrected_part_number: row.input_data=json.dumps(inp,ensure_ascii=False)
     row.title=str(parsed.get('master_title') or row.title)[:500]
     db.session.commit()
     return jsonify({'listing_id':row.id,'message':'修订成功，原记录已更新，编号未改变','redirect_url':f'/workspace?listing={row.id}'})
+
+@app.post("/api/listings/<int:listing_id>/part-number")
+def save_part_number(listing_id):
+    """Edit metadata only. Do not silently rewrite customer-facing claims."""
+    row=Listing.query.get_or_404(listing_id)
+    data=request.get_json(silent=True) or {}
+    number=str(data.get('part_number') or '').strip().upper()
+    if not re.fullmatch(r'[A-Z0-9]{1,16}(?:-[A-Z0-9]{1,8})?(?:\s*/\s*[A-Z0-9]{1,16}(?:-[A-Z0-9]{1,8})?)*',number):
+        return jsonify({'error':'零件号格式不正确；支持 N393970、1607000D7K、629851-8，以及多个编号用 / 分隔'}),400
+    inp=json.loads(row.input_data or '{}')
+    if not isinstance(inp,dict): inp={}
+    inp['part_number']=number
+    row.input_data=json.dumps(inp,ensure_ascii=False)
+    row.model=number[:200]
+    db.session.commit()
+    return jsonify({'message':'档案零件号已保存；原文案未自动替换，请使用文案修正功能同步核验。','part_number':number,'listing_id':row.id})
 
 @app.get("/parts")
 def parts():

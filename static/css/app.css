@@ -26,3 +26,8 @@
 #loadOriginal,#copyRev,#saveRev{background:#173b75;color:white;border:1px solid #173b75;font-weight:700;padding:13px 22px}
 #loadOriginal:hover,#copyRev:hover,#saveRev:hover{background:#0e2855}
 @media(max-width:720px){.revision-modes{grid-template-columns:1fr}}
+
+.part-number-edit{border:2px solid #d7e5fb;background:#f7faff;border-radius:12px;padding:16px;margin:14px 0}.part-number-edit input{width:100%;padding:12px;border:2px solid #9bb8e5;border-radius:9px;font-size:16px;font-weight:700;letter-spacing:.3px}.part-number-edit input:focus{outline:3px solid #245aa433;border-color:#245aa4}
+
+/* V1.5.8: edit spare part number in the library without changing the listing */
+.library-part-cell{display:flex;align-items:flex-start;flex-direction:column;gap:5px;min-width:0}.library-part-cell .editLibraryPart{font-size:12px;padding:4px 9px;min-height:28px}.library-part{overflow-wrap:anywhere}

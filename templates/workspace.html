@@ -5,7 +5,7 @@
 <div class="library-table"><div class="library-row library-header"><span>编号 / 时间</span><span>零件号</span><span>商品标题</span><span>状态 / 操作</span></div>
 {% for x in listings %}<div class="library-row library-record" data-id="{{x.id}}" data-title="{{x.title|e}}" data-model="{{x.model|e}}" data-input='{{(x.input_data or "{}")|e}}' data-output='{{(x.output_data or "{}")|e}}'>
 <div><strong>#{{x.id}}</strong><small class="muted">{{x.created_at.strftime('%Y-%m-%d %H:%M')}}</small></div>
-<div class="library-part" data-part="">识别中…</div>
+<div class="library-part-cell"><span class="library-part" data-part="">识别中…</span><button type="button" class="editLibraryPart library-action" title="直接修改档案零件号">修改编号</button></div>
 <div class="library-title" title="{{x.title|e}}">{{x.title}}</div>
 <div class="library-ops"><span class="revisionBadge" data-id="{{x.id}}" hidden>已修订</span><button type="button" class="viewListing library-action" data-id="{{x.id}}">查看</button><a class="library-action" href="/revise?id={{x.id}}">修订</a><button type="button" class="deleteListing library-action danger-outline" data-id="{{x.id}}">删除</button></div>
 </div>{% else %}<div class="empty">暂无数据</div>{% endfor %}
