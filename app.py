@@ -5,10 +5,10 @@ from dotenv import load_dotenv
 from database.models import db, Listing, DataPacket
 from services.ai_service import analyze_product, generate_listing, optimize_listing, lookup_part, build_chatgpt_prompt, one_click_listing
 from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_tag_reason
-from services.listing_rules import apply_policy, validate_tags, validate_description_lengths
+from services.listing_rules import apply_policy, validate_tags, validate_description_lengths, validate_risk_check
 
 load_dotenv()
-APP_VERSION = "1.5.8"
+APP_VERSION = "1.5.9"
 app = Flask(__name__)
 
 @app.context_processor
@@ -203,6 +203,7 @@ def revise_save(listing_id):
             reason=invalid_tag_reason(tag)
             if reason:return jsonify({'error':f'第{idx}个配置第{j}个标签{tag}：{reason}'}),400
     try:
+        validate_risk_check(parsed)
         validate_tags(parsed,inp)
         apply_policy(parsed,inp)
         validate_description_lengths(parsed)
@@ -303,6 +304,7 @@ def import_listing():
                 if reason:
                     return jsonify({"error":f"第 {index} 个配置的第 {tag_index} 个标签 {tag}：{reason}"}),400
         try:
+            validate_risk_check(parsed)
             validate_tags(parsed, inp)
             apply_policy(parsed, inp)
             validate_description_lengths(parsed)

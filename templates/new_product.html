@@ -1,7 +1,13 @@
 {% extends "base.html" %}{% block title %}新商品创建{% endblock %}{% block content %}
 <h1>新商品创建</h1>
-<div class="panel">
-<label>商品类型</label><div class="seg"><button data-type="machine" class="active">电动工具整机</button><button data-type="part">电动工具零件</button><button data-type="other">其他商品</button></div>
+<div class="panel type-entry-panel">
+<label class="type-entry-label">选择商品类型</label>
+<div class="product-type-grid" role="group" aria-label="商品类型">
+<button type="button" data-type="part" class="product-type-card active"><span class="type-icon">⚙</span><strong>电动工具零件</strong><small>电机、转子、定子、开关、齿轮箱等备件</small><em>默认入口</em></button>
+<button type="button" data-type="machine" class="product-type-card"><span class="type-icon">🛠</span><strong>电动工具整机</strong><small>螺丝刀、角磨机、电锤、冲击扳手等</small></button>
+<button type="button" data-type="other" class="product-type-card"><span class="type-icon">📦</span><strong>其他商品</strong><small>园林工具及其他非电动工具商品</small></button>
+</div>
+<div class="selected-type-note" id="selectedTypeNote">当前创建：电动工具零件</div>
 <div id="fields">
 <label>品牌</label><input id="brand" placeholder="例如 RUIBA / SKIL / Bosch">
 <label>型号 / 零件号</label><input id="model" placeholder="例如 JM-125A 或 629932-8">
@@ -10,7 +16,7 @@
 <label>品牌生成策略</label><div class="seg"><button id="withBrand" class="active">带品牌</button><button id="noBrand">不带品牌</button></div>
 <label><input type="checkbox" id="useWeb" checked> 允许 AI 联网查询俄罗斯关键词/零件资料</label>
 </div>
-<div id="configs"><label>销售配置（整机可添加多个；其他类型可留空）</label><div id="configList"></div><button id="addConfig" class="secondary">＋ 添加配置</button></div>
+<div id="configs" class="machine-configs"><label>销售配置（整机可添加多个）</label><div id="configList"></div><button id="addConfig" class="secondary">＋ 添加配置</button></div>
 <div class="actions"><button id="oneClickBtn" class="primary">一键生成 ChatGPT 完整指令（免费 Plus 模式）</button></div><p class="muted">无需 API Key。复制一次指令到 ChatGPT，生成 Part0–Part8 后粘贴回下方保存。</p>
 </div>
 <details class="panel"><summary>可选：付费 API 全自动生成</summary><p class="muted">仅在 Render 已配置 OPENAI_API_KEY 且账户有 API 额度时使用。ChatGPT Plus 不包含 API 额度。</p><button id="apiGenerateBtn" class="secondary">API 自动生成（需单独付费）</button></details><div id="analysis" class="result hidden"></div><div id="output" class="result hidden"></div>

@@ -75,6 +75,14 @@ def apply_policy(result, payload):
         entry['part4_description_zh']='\n\n'.join(x for x in (zh,zh_before,WARRANTY_ZH) if x)
     return result
 
+def validate_risk_check(result):
+    """Block persistence unless the generated risk_check explicitly passes."""
+    risk = result.get('risk_check')
+    if not isinstance(risk, dict) or risk.get('passed') is not True:
+        raise ValueError('风险检查未通过或缺少 passed=true，不能保存。请先修正 ChatGPT JSON 中的 risk_check，再重新导入。')
+    return result
+
+
 def validate_tags(result, payload):
     for entry in result.get('listings',[]):
         tags = entry.get('part5_hashtags')

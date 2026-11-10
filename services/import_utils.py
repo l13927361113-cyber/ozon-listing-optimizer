@@ -59,6 +59,13 @@ def normalize_tags(tags, part_number="", brand=""):
         tag = str(raw).strip().replace("-", "_")
         if not tag.startswith("#"):
             tag = "#" + tag
+        # Safely normalize spaces and punctuation inside hashtags to underscores.
+        # Keep Cyrillic/Latin letters and digits intact so model identifiers such
+        # as "DT W1001" become "DT_W1001" rather than being split or deleted.
+        body = tag[1:]
+        body = re.sub(r"[^а-яёА-ЯЁa-zA-Z0-9_]+", "_", body)
+        body = re.sub(r"_+", "_", body).strip("_")
+        tag = "#" + body
         # Bosch's documented 10-digit spare part notation: 2 609 120 395.
         # Do not reformat unrelated numbers as Bosch part numbers.
         if is_bosch and len(digits) == 10:

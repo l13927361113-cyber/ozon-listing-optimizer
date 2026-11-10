@@ -3,8 +3,26 @@ function show(id,data){const el=$(id);el.classList.remove("hidden");el.innerHTML
 function escapeHtml(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
 async function post(url,data){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const j=await r.json();if(!r.ok)throw new Error(j.error||"请求失败");return j;}
 
-let productType="machine",brandMode="with_brand";
-document.querySelectorAll("[data-type]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-type]").forEach(x=>x.classList.remove("active"));b.classList.add("active");productType=b.dataset.type;});
+let productType="part",brandMode="with_brand";
+const productTypeNames={part:"电动工具零件",machine:"电动工具整机",other:"其他商品"};
+function hasUnsavedProductInput(){return ["brand","model","product_name","info","packetText","importText"].some(id=>$(id)&&$(id).value.trim())||configs.some(x=>String(x).trim());}
+function resetProductForm(){["brand","model","product_name","info","packetText","importText","promptPreview"].forEach(id=>{if($(id))$(id).value="";});configs=[];renderConfigs();if($("importStatus"))$("importStatus").textContent="";if($("packetStatus"))$("packetStatus").textContent="";}
+function setProductType(nextType,initial=false){
+ if(nextType===productType&&!initial)return;
+ if(!initial&&hasUnsavedProductInput()){
+  const ok=confirm("当前商品表单已有填写内容。切换类型前请先复制或保存需要保留的资料。继续切换将清空当前表单，是否继续？");
+  if(!ok)return;
+  resetProductForm();
+ }
+ productType=nextType;
+ document.querySelectorAll("[data-type]").forEach(x=>{const active=x.dataset.type===nextType;x.classList.toggle("active",active);x.setAttribute("aria-pressed",active?"true":"false");});
+ if($("selectedTypeNote"))$("selectedTypeNote").textContent="当前创建："+productTypeNames[nextType];
+ if($("configs"))$("configs").classList.toggle("hidden",nextType!=="machine");
+ if($("model"))$("model").placeholder=nextType==="part"?"例如 629932-8 或 N149721":nextType==="machine"?"例如 JM-125A 或 RB-809S":"例如 商品型号或编号";
+ if($("product_name"))$("product_name").placeholder=nextType==="part"?"例如 电机、转子、定子、开关":nextType==="machine"?"例如 无刷角磨机":"例如 商品名称";
+}
+document.querySelectorAll("[data-type]").forEach(b=>b.onclick=()=>setProductType(b.dataset.type));
+setProductType("part",true);
 if($("withBrand")) $("withBrand").onclick=()=>{brandMode="with_brand";$("withBrand").classList.add("active");$("noBrand").classList.remove("active")};
 if($("noBrand")) $("noBrand").onclick=()=>{brandMode="no_brand";$("noBrand").classList.add("active");$("withBrand").classList.remove("active")};
 

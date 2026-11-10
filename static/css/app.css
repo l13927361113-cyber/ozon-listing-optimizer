@@ -31,3 +31,16 @@
 
 /* V1.5.8: edit spare part number in the library without changing the listing */
 .library-part-cell{display:flex;align-items:flex-start;flex-direction:column;gap:5px;min-width:0}.library-part-cell .editLibraryPart{font-size:12px;padding:4px 9px;min-height:28px}.library-part{overflow-wrap:anywhere}
+
+/* V1.5.9: clear, separate product-type entry cards */
+.product-type-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:12px 0 16px}
+.product-type-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-height:150px;padding:18px;text-align:left;border:1px solid #d9e0ec;border-radius:14px;background:#fff;transition:border-color .15s,box-shadow .15s,background .15s}
+.product-type-card:hover{border-color:#8798b5;box-shadow:0 3px 12px rgba(23,32,51,.08)}
+.product-type-card.active{border:2px solid #243653;background:#f0f4fa;box-shadow:0 0 0 2px rgba(36,54,83,.08)}
+.product-type-card strong{font-size:16px;color:#172033}
+.product-type-card small{font-size:12px;line-height:1.5;color:#69768b}
+.product-type-card em{margin-top:auto;font-size:11px;font-style:normal;color:#fff;background:#243653;border-radius:20px;padding:3px 8px}
+.type-icon{font-size:25px;line-height:1.2}
+.selected-type-note{padding:10px 12px;border-radius:9px;background:#edf3fb;color:#243653;font-weight:700;font-size:13px;margin:0 0 14px}
+.type-entry-label{font-size:15px}
+@media(max-width:760px){.product-type-grid{grid-template-columns:1fr}.product-type-card{min-height:110px}}
