@@ -8,7 +8,7 @@ from services.import_utils import parse_chatgpt_json, normalize_tags, invalid_ta
 from services.listing_rules import apply_policy, validate_tags, validate_description_lengths, validate_risk_check
 
 load_dotenv()
-APP_VERSION = "1.5.9"
+APP_VERSION = "1.6.0"
 app = Flask(__name__)
 
 @app.context_processor
@@ -203,11 +203,11 @@ def revise_save(listing_id):
             reason=invalid_tag_reason(tag)
             if reason:return jsonify({'error':f'第{idx}个配置第{j}个标签{tag}：{reason}'}),400
     try:
-        validate_risk_check(parsed)
         validate_tags(parsed,inp)
         apply_policy(parsed,inp)
         validate_description_lengths(parsed)
     except ValueError as exc:return jsonify({'error':str(exc)}),400
+    parsed["_review_status"] = "ready" if isinstance(parsed.get("risk_check"),dict) and parsed["risk_check"].get("passed") is True else "draft_pending_verification"
     # Do not report success if the user pasted the unchanged original JSON.
     changed_fields=[]
     for i,(before,after) in enumerate(zip(old['listings'],parsed['listings']),1):
@@ -304,12 +304,12 @@ def import_listing():
                 if reason:
                     return jsonify({"error":f"第 {index} 个配置的第 {tag_index} 个标签 {tag}：{reason}"}),400
         try:
-            validate_risk_check(parsed)
             validate_tags(parsed, inp)
             apply_policy(parsed, inp)
             validate_description_lengths(parsed)
         except ValueError as exc:
             return jsonify({"error":str(exc)}),400
+        parsed["_review_status"] = "ready" if isinstance(parsed.get("risk_check"),dict) and parsed["risk_check"].get("passed") is True else "draft_pending_verification"
         parsed.setdefault("compatibility_table",[])
         parsed.setdefault("analysis_summary","待核验：请查看文案中的事实来源")
     title=(parsed or {}).get("master_title") or inp.get("title") or inp.get("product_name") or inp.get("model") or inp.get("part_number") or "ChatGPT导入文案"
@@ -317,7 +317,8 @@ def import_listing():
                 brand=str(inp.get("brand") or "")[:200],model=str(inp.get("model") or inp.get("part_number") or "")[:200],
                 input_data=json.dumps(inp,ensure_ascii=False),output_data=json.dumps(parsed if parsed is not None else {"raw_output":output,"source":"ChatGPT Plus 手动导入"},ensure_ascii=False))
     db.session.add(row);db.session.commit()
-    return jsonify({"listing_id":row.id,"message":"已保存到文案库"})
+    is_draft = bool(parsed is not None and not (isinstance(parsed.get("risk_check"),dict) and parsed["risk_check"].get("passed") is True))
+    return jsonify({"listing_id":row.id,"draft":is_draft,"message":"已保存为待核验草稿，不可发布" if is_draft else "已保存到文案库"})
 
 @app.post("/api/data-packet")
 def save_data_packet():

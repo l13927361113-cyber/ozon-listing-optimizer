@@ -145,6 +145,13 @@ def build_chatgpt_prompt(mode,data):
 - Part7/8 明确写出实际包装物及零件号，不得臆造附件；仅调整Part3/Part4的描述规则，绝不改写或删除Part7/Part8。
 - Part3按V1.4.3商品类型预算生成：零件完整Part3须包含购买提醒及固定30天保修，正文建议2500–3600字符；非零件正文优先3900–4800字符，硬上限6000字符。所有最终描述不得超过6000字符；没有最低字数。不得重复包装清单。
 """
+    # V1.6.0: Makita-only reverse search for verified interchangeable part numbers.
+    # Do not alter verification policies for any other brand.
+    if any(x in brand for x in ("makita", "牧田", "макита")):
+        extra += """
+【仅牧田零件专项：反向核验通用编号】
+输入只有品牌、零件号、零件类型时，也必须主动反向查找主要适配机器，不得要求用户先提供型号。继续查找制造商目录中的同安装位置编号、官方互换图例和替代方向；区分双向互换、单向替代、版本差异、仅卖家关联。完整列出发现的关联编号及来源、适用机型/地区/版本、证据等级、是否可互换；没有证据的明确标注待核验，绝不宣称全部通用。用户补充遗漏型号（如9553HN）时，应重点追加核验，不能凭卖家标题直接升级为官方确认。主零件号永远使用实际销售的输入编号，不因发现替代号而改变。原Part1俄文SEO标题格式保持不变，不堆砌关联编号；只在Part3/Part4中简短说明有证据的可互换编号和条件，Part7/8只写实际销售物品。内部在analysis_summary中列出关联编号及核验结论，不得捏造实物结构一致性。牧田最终文案继续禁止品牌名称。
+"""
     if mode in ("generate", "optimize"):
         extra+="\nV1.3 一键模式：在一次回答内部先核验事实再生成完整 Part0–Part8；旧标题可作为唯一输入；单独输出 compatibility_table 数组（model,order_number,type,region,evidence_level,source_url），同时保留卖家已验证旧型号及独立检索新增的有来源机型，供用户截图；Part3 不罗列长串订货号；零件30自然日保修及七项排除条款必须直接写入最终JSON Part3/Part4，系统仅在缺失时补全；整机保修仅在用户确认后写入，不在商品描述加入笼统法律或平台退货声明；来源无法访问时使用公开维修资料交叉核验并标注等级，不得伪造官网检索结果。\n"
     if mode=="analyze":

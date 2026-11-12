@@ -57,7 +57,12 @@ async function preparePlusPrompt(){const v=collectPlusData();if(v.mode==='genera
 async function copyPlus(){try{const txt=await preparePlusPrompt();await navigator.clipboard.writeText(txt);alert('指令已复制，请粘贴到 ChatGPT');}catch(e){alert('复制失败：'+e.message+'。可手动复制预览框中的文字。');}}
 if($('copyPromptBtn')) $('copyPromptBtn').onclick=copyPlus;
 if($('openChatBtn')) $('openChatBtn').onclick=()=>window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
-if($('importBtn')) $('importBtn').onclick=async()=>{try{const v=collectPlusData();const result=await post('/api/import-listing',{mode:v.mode,input_data:v.data,output:$('importText').value});$('importStatus').textContent='已保存，文案编号：'+result.listing_id+'。前往文案库查看。';}catch(e){alert(e.message)}};
+if($('importText')){
+ const draftKey='ozon_listing_import_draft_v160_'+location.pathname;
+ try{if(!$('importText').value) $('importText').value=localStorage.getItem(draftKey)||'';}catch(_e){}
+ $('importText').addEventListener('input',()=>{try{localStorage.setItem(draftKey,$('importText').value)}catch(_e){}});
+}
+if($('importBtn')) $('importBtn').onclick=async()=>{try{const v=collectPlusData();const result=await post('/api/import-listing',{mode:v.mode,input_data:v.data,output:$('importText').value});$('importStatus').textContent=result.message+'，文案编号：'+result.listing_id+'。'+(result.draft?'请核验后再发布。':'前往文案库查看。');}catch(e){alert(e.message)}};
 if($('analyzeBtn')) {$('analyzeBtn').textContent='① 生成 ChatGPT 分析指令';$('analyzeBtn').onclick=async()=>{try{const v=collectPlusData();const r=await post('/api/chatgpt-prompt',{mode:'analyze',...v.data});$('promptPreview').value=r.prompt;await navigator.clipboard.writeText(r.prompt);alert('分析指令已复制，请到 ChatGPT 核验商品资料。');}catch(e){alert(e.message)}};}
 if($('generateBtn')) {$('generateBtn').disabled=false;$('generateBtn').textContent='② 生成 Listing 指令';$('generateBtn').onclick=copyPlus;}
 if($('lookupBtn')) {$('lookupBtn').textContent='生成零件号核验指令';$('lookupBtn').onclick=copyPlus;}
